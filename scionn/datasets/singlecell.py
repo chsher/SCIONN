@@ -81,6 +81,6 @@ class SingleCellDataset(Dataset):
         if self.details:
             return x, y, b_idxs
         elif self.returnBase:
-            return x, y, base.repeat(seq_len)
+            return x, y, base.repeat(self.seq_len)
         else:
             return x, y

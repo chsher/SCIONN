@@ -5,6 +5,7 @@ import pandas as pd
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 def sample_gumbel(shape, device, eps=1e-20): 
     """Sample from Gumbel(0, 1)"""

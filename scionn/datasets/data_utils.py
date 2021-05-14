@@ -8,7 +8,7 @@ from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
 from scionn.datasets import singlecell
 
-def make_datasets(adata, seq_len, splits_msi, splits_mss, kidx, ptlabel, smlabel, scale=True, trainBase=True, returnBase=True, train_only=False):
+def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, ylabel, ptlabel, smlabel, scale=True, trainBaseline=True, returnBase=True, train_only=False, random_state=32921):
 
     input_size = adata.shape[1]
 
@@ -40,11 +40,13 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, kidx, ptlabel, smlabel
             'mean': scaler.mean_,
             'stdev': scaler.scale_
         }
+    else:
+        baselineStats = {}
 
-    train = SingleCellDataset(cdata, a_idxs, a_labels, aidxs, len(aidxs), seq_len, input_size, random_state=random_state, baselineStats=baselineStats, trainBaseline=trainBaseline, returnBase=returnBase)
+    train = singlecell.SingleCellDataset(cdata, a_idxs, a_labels, aidxs, len(aidxs), seq_len, input_size, random_state=random_state, baselineStats=baselineStats, trainBaseline=trainBaseline, returnBase=returnBase)
 
     if train_only:
         return train
     else:
-        val = SingleCellDataset(ddata, b_idxs, b_labels, bidxs, len(bidxs), seq_len, input_size, random_state=random_state, baselineStats=baselineStats)
+        val = singlecell.SingleCellDataset(ddata, b_idxs, b_labels, bidxs, len(bidxs), seq_len, input_size, random_state=random_state, baselineStats=baselineStats, returnBase=returnBase)
         return train, val

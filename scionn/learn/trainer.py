@@ -53,21 +53,26 @@ def run_training_loop(e, train_loader, net, loss_fn, optimizer, device, lamb=Non
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-             
-        auc = roc_auc_score(label.cpu().numpy(), output_keep.detach().cpu().numpy())
+        
+        try:     
+            auc = roc_auc_score(label.cpu().squeeze(-1).numpy(), output_keep.detach().squeeze(-1).cpu().numpy())
+        except:
+            auc = np.nan
 
         if verbose:
-            print(PRINT_STMT.format(e, b, blabel, *losses, 0.0, 0.0, auc, frac_tiles))
+            print(PRINT_STMT.format(e, b, blabel, *losses, auc, frac_tiles))
 
 def run_validation_loop(e, val_loader, net, loss_fn, device, lamb=None, temp=None, gumbel=True, adv=False, blabel='Val', verbose=True):
     net.eval()
     net.to(device)
 
-    total_loss = 0.0
+    total_znorm, total_tiles, total_loss = 0.0, 0.0, 0.0
+    y_tracker, y_prob_tracker = np.array([]), np.array([])
+
     for b, (input, label, base) in enumerate(val_loader):
         input, label, base = input.to(device), label.to(device), base.to(device)
         
-        output = gen(input)
+        outputs = net(input)
 
         if gumbel:
             if adv:
@@ -97,6 +102,8 @@ def run_validation_loop(e, val_loader, net, loss_fn, device, lamb=None, temp=Non
             loss = bceloss + omega
             
             frac_tiles = znorm / (input.shape[0] * input.shape[1])
+            total_znorm += znorm
+            total_tiles += input.shape[0] * input.shape[1]
 
         else:
             output_keep = outputs
@@ -107,10 +114,23 @@ def run_validation_loop(e, val_loader, net, loss_fn, device, lamb=None, temp=Non
             frac_tiles = np.nan
 
         total_loss += loss.detach().cpu().numpy()
+        
+        y_prob = torch.sigmoid(output_keep.detach())
+        y_prob_tracker = np.concatenate((y_prob_tracker, y_prob.cpu().squeeze(-1).numpy()))
+        y_tracker = np.concatenate((y_tracker, label.cpu().squeeze(-1).numpy()))
 
-        auc = roc_auc_score(label.cpu().numpy(), output_keep.detach().cpu().numpy())
+        try:
+            auc = roc_auc_score(label.cpu().squeeze(-1).numpy(), output_keep.detach().cpu().squeeze(-1).numpy())
+        except:
+            auc = np.nan
 
         if verbose:
-            print(PRINT_STMT.format(e, b, blabel, *losses, 0.0, 0.0, auc, frac_tiles))
+            print(PRINT_STMT.format(e, b, blabel, *losses, auc, frac_tiles))
 
-    return total_loss, auc, frac_tiles.item()
+    try:
+        total_frac = total_znorm / total_tiles
+        total_frac = total_frac.item()
+    except:
+        total_frac = np.nan
+
+    return total_loss, roc_auc_score(y_tracker, y_prob_tracker), total_frac

@@ -1,7 +1,7 @@
 import torch
 import argparse
 
-MMR_FILE = 'drive/My Drive/_data/adata_645k_tsne_20200415_noNAclean_T.h5ad'
+MMR_FILE = 'drive/My Drive/_data/adata_645k_tsne_20200415_noNAclean_T_chemokinesOnly.h5ad'
 
 def parse_args():
     parser = argparse.ArgumentParser(description='MMR classifier')
@@ -17,11 +17,13 @@ def parse_args():
     parser.add_argument('--ylabel', type=str, default='MMRLabel', help='binary label on which to perform classification task')
     parser.add_argument('--ptlabel', type=str, default='PatientBarcode', help='patient annotation')
     parser.add_argument('--smlabel', type=str, default='PatientTypeID', help='sample annotation')
+    parser.add_argument('--scale', default=False, action='store_true', help='whether or not to standardize the features')
     parser.add_argument('--kfold', type=int, default=10, help='number of splits/cross validations to perform')
     parser.add_argument('--seq_len', type=int, default=100, help='number of cells per sample')
     parser.add_argument('--batch_size', type=int, default=10, help='number of samples per batch')
     parser.add_argument('--pin_memory', default=False, action='store_true', help='whether to pin memory during data loading')
     parser.add_argument('--random_state', type=int, default=31321, help='random seed of the dataset and data filter')
+    parser.add_argument('--return_baseline', default=False, action='store_true', help='whether or not to return the baseline in the dataloader')
     
     # model
     parser.add_argument('--net_name', type=str, default='rnnet', help='name of neural network')
@@ -36,6 +38,7 @@ def parse_args():
     parser.add_argument('--n_conv_filters', nargs='*', type=int, default=[256, 128], help='number of filters (per layer)')
     parser.add_argument('--adv', default=False, action='store_true', help='whether to train adversarially')
     parser.add_argument('--hard', default=False, action='store_true', help='whether to hard sample')
+    parser.add_argument('--lamb', type=float, default=0.0001, help='regularizer weight')
     parser.add_argument('--temp', type=float, default=3.0, help='gumbel-softmax sampling temperature')
     parser.add_argument('--gumbel', default=False, action='store_true', help='whether to gumbel-softmax sample')
     # rnn
@@ -53,11 +56,9 @@ def parse_args():
     parser.add_argument('--verbose', default=False, action='store_true', help='whether or not to print status during training')
 
     # attribution
-    parser.add_argument('--attribution', default=False, action='store_true', help='whether to run integrated gradients on the model, dataset')
-    parser.add_argument('--scale', default=False, action='store_true', help='whether or not to standardize the features')
-    parser.add_argument('--ctlabel', type=str, default='PatientBarcode', help='cell type annotation')
     parser.add_argument('--train_baseline', default=False, action='store_true', help='whether or not to train the baseline')
-    parser.add_argument('--return_baseline', default=False, action='store_true', help='whether or not to return the baseline in the dataloader')
+    parser.add_argument('--attribution', default=False, action='store_true', help='whether to run integrated gradients on the model, dataset')
+    parser.add_argument('--ctlabel', type=str, default='v11_bot', help='cell type annotation')
     
     args = parser.parse_args()
     
