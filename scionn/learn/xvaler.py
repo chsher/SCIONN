@@ -2,65 +2,57 @@ import scipy
 import pickle
 import numpy as np
 import anndata as ad
-from tqdm.auto import tqdm, trange
+from tqdm.autonotebook import tqdm, trange
 from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler
 
+import os
 import sys
 from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
 from scionn.datasets import data_utils
-from scionn.models import rnnet, scionnet
+from scionn.models import logreg, rnnet, scionnet
 from scionn.learn import trainer
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-MMR_TO_IDX = {
-    'MSS': 0,
-    'MSI': 1
-}
-
 def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_params, learning_rate, weight_decay, patience, num_epochs, outfile, statsfile, device, kfold=10, 
     ylabel='MMRLabel', ptlabel='PatientBarcode', smlabel='PatientTypeID', training=True, scale=True, trainBaseline=True, returnBase=True, random_state=32921, verbose=True):
 
     input_size = adata.shape[1]
     loss_fn = nn.BCEWithLogitsLoss()
-    adata.obs[ylabel] = adata.obs[label].apply(lambda x: MMR_TO_IDX[x])
 
-    if random_state is not None:
-        np.random.seed(random_state)
-        
-    idxs_msi = adata.obs.loc[adata.obs[ylabel] == 1, ptlabel].unique()
-    idxs_mss = adata.obs.loc[adata.obs[ylabel] == 0, ptlabel].unique()
-
-    if len(idxs_msi) < kfold or len(idxs_mss) < kfold:
-        kfold = min(len(idxs_msi), len(idxs_mss))
-        print('Insufficient examples, reducing kfold to', kfold)
-
-    np.random.shuffle(idxs_msi)
-    np.random.shuffle(idxs_mss)
-
-    splits_msi, splits_mss = np.array_split(idxs_msi, kfold), np.array_split(idxs_mss, kfold)
+    splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
     for kidx in trange(kfold):
-        a = outfile.split('/')
-        a[-1] = str(kidx).zfill(2) + '_' + a[-1]
-        outfilek = '/'.join(a)
+        a = outfile.split('.')
+        a[0] = a[0] + '_' + str(kidx).zfill(2)
+        outfilek = '.'.join(a)
 
-        train, val = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, ylabel, ptlabel, smlabel, scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, train_only=False, random_state=random_state)
+        train, val = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, ylabel, ptlabel, smlabel, 
+            scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, train_only=False, random_state=random_state)
         train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, pin_memory=True, drop_last=True)
         val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, pin_memory=True, drop_last=False)
 
-        if net_name in ['rnnet', 'gru', 'lstm']:
+        if net_name == 'logreg':
+            output_size, dropout = net_params
+            net = logreg.LogReg(input_size, seq_len, output_size, dropout)
+            lamb, temp, gumbel, adv = None, None, False, False
+        elif net_name in ['rnnet', 'gru', 'lstm']:
             output_size, hidden_size, n_layers, dropout, bidirectional, agg, hide = net_params
             net = rnnet.RNNet(input_size, hidden_size, output_size, n_layers, dropout, bidirectional, agg, hide, net_name=net_name)
             lamb, temp, gumbel, adv = None, None, False, False
         elif net_name == 'scionnet':
             output_size, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, lamb, temp, adv, hard, dropout = net_params
-            net = scionnet.SCIONNet(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=adv, hard=hard, dropout=dropout, in_channels=input_size, out_channels=output_size, H_in=seq_len)
+            net = scionnet.SCIONNet(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, 
+                adv=adv, hard=hard, dropout=dropout, in_channels=input_size, out_channels=output_size, H_in=seq_len)
         
+        if os.path.exists(outfilek):
+            saved_state = torch.load(outfilek, map_location=lambda storage, loc: storage)
+            net.load_state_dict(saved_state)
+
         optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=patience, verbose=verbose)
 

@@ -8,7 +8,26 @@ from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
 from scionn.datasets import singlecell
 
-def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, ylabel, ptlabel, smlabel, scale=True, trainBaseline=True, returnBase=True, train_only=False, random_state=32921):
+def make_splits(adata, ylabel, ptlabel, kfold, random_state=None):
+    if random_state is not None:
+        np.random.seed(random_state)
+        
+    idxs_msi = adata.obs.loc[adata.obs[ylabel] == 1, ptlabel].unique()
+    idxs_mss = adata.obs.loc[adata.obs[ylabel] == 0, ptlabel].unique()
+
+    if len(idxs_msi) < kfold or len(idxs_mss) < kfold:
+        kfold = min(len(idxs_msi), len(idxs_mss))
+        print('Insufficient examples, reducing kfold to', kfold)
+
+    np.random.shuffle(idxs_msi)
+    np.random.shuffle(idxs_mss)
+
+    splits_msi, splits_mss = np.array_split(idxs_msi, kfold), np.array_split(idxs_mss, kfold)
+
+    return splits_msi, splits_mss, idxs_msi, idxs_mss
+
+def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, ylabel, ptlabel, smlabel, scale=True, 
+    trainBaseline=True, returnBase=True, details=False, returnTensors=False, train_only=False, random_state=32921):
 
     input_size = adata.shape[1]
 
@@ -43,10 +62,23 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
     else:
         baselineStats = {}
 
-    train = singlecell.SingleCellDataset(cdata, a_idxs, a_labels, aidxs, len(aidxs), seq_len, input_size, random_state=random_state, baselineStats=baselineStats, trainBaseline=trainBaseline, returnBase=returnBase)
+    train = singlecell.SingleCellDataset(cdata, a_idxs, a_labels, aidxs, len(aidxs), seq_len, input_size, baselineStats=baselineStats, 
+        trainBaseline=trainBaseline, returnBase=returnBase, details=details, random_state=random_state)
 
-    if train_only:
+    if returnTensors:
+        X_train = cdata.X.todense()
+        X_test = ddata.X.todense()
+        Y_train = cdata.obs.loc[:, ylabel].astype(int)
+        Y_test = ddata.obs.loc[:, ylabel].astype(int)
+
+        return X_train, Y_train, X_test, Y_test
+
+    elif train_only:
+
         return train
+
     else:
-        val = singlecell.SingleCellDataset(ddata, b_idxs, b_labels, bidxs, len(bidxs), seq_len, input_size, random_state=random_state, baselineStats=baselineStats, returnBase=returnBase)
+        val = singlecell.SingleCellDataset(ddata, b_idxs, b_labels, bidxs, len(bidxs), seq_len, input_size, baselineStats=baselineStats, 
+            trainBaseline=False, returnBase=returnBase, details=details, random_state=random_state)
+        
         return train, val

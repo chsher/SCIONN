@@ -10,8 +10,8 @@ import torch
 from torch.utils.data import Dataset
 
 class SingleCellDataset(Dataset):
-    def __init__(self, adata, pt_idxs, pt_labels, idxs, batch_size, seq_len, input_size, trainBaseline=False, baselineStats=None, multiplier=2, 
-        random_state=None, details=False, returnBase=False):
+    def __init__(self, adata, pt_idxs, pt_labels, idxs, batch_size, seq_len, input_size, baselineStats=None, trainBaseline=False, returnBase=False, 
+        multiplier=2, details=False, random_state=None):
 
         self.adata = adata
         self.pt_idxs = pt_idxs
@@ -40,16 +40,15 @@ class SingleCellDataset(Dataset):
         else:
             self.ms = None
 
-        if self.trainBaseline:
-            if 'stdev' in self.baselineStats.keys() and 'mean' in self.baselineStats.keys():
-                self.xb = torch.FloatTensor(np.nan_to_num((0.0 - self.baselineStats['mean']) / self.baselineStats['stdev']))
-            elif 'mean' in self.baselineStats.keys():
-                self.xb = torch.FloatTensor(self.baselineStats['mean'])
-            else:
-                empty_input = torch.empty(self.input_size)
-                self.xb = torch.zeros_like(empty_input) 
+        if 'stdev' in self.baselineStats.keys() and 'mean' in self.baselineStats.keys():
+            self.xb = torch.FloatTensor(np.nan_to_num((0.0 - self.baselineStats['mean']) / self.baselineStats['stdev']))
+        elif 'mean' in self.baselineStats.keys():
+            self.xb = torch.FloatTensor(self.baselineStats['mean'])
+        else:
+            empty_input = torch.empty(self.input_size)
+            self.xb = torch.zeros_like(empty_input) 
 
-            self.xb = self.xb.repeat(self.seq_len, 1)
+        self.xb = self.xb.repeat(self.seq_len, 1)
 
     def __len__(self):    
         if self.trainBaseline:
@@ -80,7 +79,9 @@ class SingleCellDataset(Dataset):
             
         if self.details:
             return x, y, b_idxs
+
         elif self.returnBase:
             return x, y, base.repeat(self.seq_len)
+
         else:
             return x, y
