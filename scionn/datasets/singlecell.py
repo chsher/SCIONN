@@ -1,8 +1,8 @@
-import os
 import sys
 from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
 
+import os
 import numpy as np
 import pandas as pd
 

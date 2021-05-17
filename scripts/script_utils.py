@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument('--infile', type=str, default=MMR_FILE, help='file path to anndata object')
     parser.add_argument('--val_infile', type=str, default=None, help='file path to val/test anndata object')
     parser.add_argument('--outfile', type=str, default='drive/My Drive/temp.pt', help='file path to save the model state dict')
-    parser.add_argument('--statsfile', type=str, default='drive/My Drive/temp.pkl', help='file path to save the per-epoch val stats')
+    parser.add_argument('--statsfile', type=str, default='drive/My Drive/temp.pkl', help='file path to save the per-epoch stats')
     parser.add_argument('--attrfile', type=str, default='drive/My Drive/temp.csv', help='file path to save the attributions')
 
     # data
@@ -19,12 +19,12 @@ def parse_args():
     parser.add_argument('--ptlabel', type=str, default='PatientBarcode', help='patient annotation')
     parser.add_argument('--smlabel', type=str, default='PatientTypeID', help='sample annotation')
     parser.add_argument('--scale', default=False, action='store_true', help='whether or not to standardize the features')
-    parser.add_argument('--kfold', type=int, default=10, help='number of splits/cross validations to perform')
+    parser.add_argument('--kfold', type=int, default=10, help='number of train/val/test splits')
     parser.add_argument('--seq_len', type=int, default=100, help='number of cells per sample')
-    parser.add_argument('--batch_size', type=int, default=10, help='number of samples per batch')
+    parser.add_argument('--batch_size', type=int, default=200, help='number of samples per batch (check baseline only)')
     parser.add_argument('--pin_memory', default=False, action='store_true', help='whether to pin memory during data loading')
-    parser.add_argument('--random_state', type=int, default=31321, help='random seed of the dataset and data filter')
-    parser.add_argument('--return_baseline', default=False, action='store_true', help='whether or not to return the baseline in the dataloader')
+    parser.add_argument('--random_state', type=int, default=31321, help='random seed of the dataset')
+    parser.add_argument('--return_baseline', default=False, action='store_true', help='whether or not to return baseline indicator')
     
     # model
     parser.add_argument('--net_name', type=str, default='rnnet', help='name of neural network')
@@ -45,7 +45,7 @@ def parse_args():
     # rnn
     parser.add_argument('--bidirectional', default=False, action='store_true', help='whether to make the rnn bidirectional')
     parser.add_argument('--hide', default=False, action='store_true', help='whether to return the hidden layer')
-    parser.add_argument('--agg', default=False, action='store_true', help='whether to add the embeddings')
+    parser.add_argument('--agg', default=False, action='store_true', help='whether to sum the embeddings')
 
     # learning
     parser.add_argument('--training', default=False, action='store_true', help='whether to train the model')
@@ -55,11 +55,11 @@ def parse_args():
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='weight assigned to L2 regularizer')
     parser.add_argument('--patience', type=int, default=1, help='number of epochs with no improvement before invoking scheduler, model reloading')
-    parser.add_argument('--verbose', default=False, action='store_true', help='whether or not to print status during training')
+    parser.add_argument('--verbose', default=False, action='store_true', help='whether or not to print stats during training')
 
     # attribution
     parser.add_argument('--train_baseline', default=False, action='store_true', help='whether or not to train the baseline')
-    parser.add_argument('--attribution', default=False, action='store_true', help='whether to run integrated gradients on the model, dataset')
+    parser.add_argument('--attribution', default=False, action='store_true', help='whether to run integrated gradients')
     parser.add_argument('--ctlabel', type=str, default='v11_bot', help='cell type annotation')
     
     args = parser.parse_args()

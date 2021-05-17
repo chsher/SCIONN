@@ -2,6 +2,7 @@ import torch
 import pickle
 import numpy as np
 import scanpy as sc
+from sklearn.metrics import roc_auc_score
 from tqdm.autonotebook import tqdm, trange
 
 import sys
@@ -11,8 +12,6 @@ from scionn.learn import xvaler, attributer
 from scionn.models import model_utils
 from scionn.datasets import data_utils
 from scripts import script_utils
-
-from sklearn.metrics import roc_auc_score
 
 args = script_utils.parse_args()
 
@@ -57,12 +56,12 @@ if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'scionnet']:
         xvaler.run_kfold_xvalidation(adata, args.label, args.seq_len, args.batch_size, args.net_name, net_params, args.learning_rate, args.weight_decay, 
             args.patience, args.n_epochs, args.outfile, args.statsfile, device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, 
             smlabel=args.smlabel, training=args.training, validate=args.validate, scale=args.scale, trainBaseline=args.train_baseline, returnBase=args.return_baseline, 
-            bdata=bdata, random_state=args.random_state, verbose=args.verbose)
+            bdata=bdata, pin_memory=args.pin_memory, random_state=args.random_state, verbose=args.verbose)
 
     if args.train_baseline:
         attributer.check_baseline_training(adata, args.label, args.seq_len, args.batch_size, args.net_name, net_params, args.outfile, args.statsfile, 
             device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, smlabel=args.smlabel, scale=args.scale, returnBase=args.return_baseline, 
-            bdata=bdata, random_state=args.random_state, verbose=args.verbose)
+            bdata=bdata, pin_memory=args.pin_memory, random_state=args.random_state, verbose=args.verbose)
 
     if args.attribution:
         attributer.run_integrated_gradients(adata, args.label, args.seq_len, args.net_name, net_params, args.outfile, args.statsfile, args.attrfile, 
@@ -80,7 +79,7 @@ elif args.net_name in ['LR', 'RF']:
         stats = {'kidx': kidx, 'name': args.net_name, 'auc': {'train': np.nan, 'val': np.nan, 'test': np.nan}}
 
         X_train, Y_train, X_val, Y_val, X_test, Y_test = data_utils.make_datasets(adata, args.seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, args.kfold,
-            args.ylabel, args.ptlabel, args.smlabel, scale=args.scale, returnTensors=True, random_state=args.random_state)
+            args.ylabel, args.ptlabel, args.smlabel, scale=args.scale, returnTensors=True, bdata=bdata, random_state=args.random_state)
 
         lr = model_utils.load_sk_model(args.net_name, outfilek, args.random_state)
 

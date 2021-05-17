@@ -1,15 +1,14 @@
-import os
 import sys
 from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
 from scionn.models import logreg, rnnet, scionnet
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-
+import os
 import pickle
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 
 import torch
 import torch.nn as nn
