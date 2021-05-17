@@ -1,4 +1,8 @@
 import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+
+import pickle
 import numpy as np
 import pandas as pd
 from tqdm.autonotebook import tqdm, trange
@@ -9,7 +13,8 @@ import sys
 from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
 from scionn.datasets import data_utils
-from scionn.models import logreg, rnnet, scionnet
+from scionn.models import model_utils
+from scionn.learn import trainer
 
 import pdb
 
@@ -18,8 +23,40 @@ MMR_TO_IDX = {
     'MSI': 1
 }
 
-def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfile, attrfile, device, kfold=10, ylabel='MMRLabel', ptlabel='PatientBarcode', 
-    smlabel='PatientTypeID', ctlabel='v11_bot', scale=True, trainBaseline=True, returnBase=True, random_state=32921, verbose=True):
+def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_params, outfile, statsfile, device, kfold=10, ylabel='MMRLabel', 
+    ptlabel='PatientBarcode', smlabel='PatientTypeID', scale=True, returnBase=True, bdata=None, random_state=32921, verbose=True):
+
+    input_size = adata.shape[1]
+    loss_fn = nn.BCEWithLogitsLoss()
+
+    splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
+
+    for kidx in trange(kfold):
+        a = outfile.split('.')
+        a[0] = a[0] + '_' + str(kidx).zfill(2)
+        outfilek = '.'.join(a)
+
+        datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
+            scale=scale, returnBase=returnBase, baseOnly=True, bdata=bdata, random_state=random_state)
+        loaders = [DataLoader(d, batch_size=len(d), shuffle=False, pin_memory=True, drop_last=False) for d in datasets]
+        
+        net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx)
+        net.temp = 0.1
+
+        for loader, loader_label in zip(loaders, ['train_base', 'val_base', 'test_base']):
+            loss, auc, frac_tiles = trainer.run_validation_loop(0, loader, net, loss_fn, device, lamb=lamb, temp=0.1, gumbel=gumbel, adv=adv, verbose=verbose, blabel=loader_label)
+            
+            with open(statsfile, 'ab') as f:
+                pickle.dump({'k': kidx, 
+                    'split': loader_label,
+                    'loss_best': loss, 
+                    'auc_best': auc, 
+                    'frac_best': frac_tiles, 
+                    'lamb_best': lamb, 
+                    'temp_best': temp}, f)
+
+def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfile, statsfile, attrfile, device, kfold=10, ylabel='MMRLabel', 
+    ptlabel='PatientBarcode', smlabel='PatientTypeID', ctlabel='v11_bot', scale=True, trainBaseline=True, returnBase=True, bdata=None, random_state=32921, verbose=True):
 
     input_size = adata.shape[1]
     adata.obs[ylabel] = adata.obs[label].apply(lambda x: MMR_TO_IDX[x])
@@ -31,32 +68,19 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
         a[0] = a[0] + '_' + str(kidx).zfill(2)
         outfilek = '.'.join(a)
 
-        train, val = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, ylabel, ptlabel, smlabel, 
-            scale=scale, trainBaseline=False, returnBase=False, details=True, train_only=False, random_state=random_state)
+        datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
+            scale=scale, trainBaseline=False, returnBase=False, details=True, bdata=bdata, random_state=random_state)
         xb = train.xb
 
-        if net_name == 'logreg':
-            output_size, dropout = net_params
-            net = logreg.LogReg(input_size, seq_len, output_size, dropout)
-            lamb, temp, gumbel, adv = None, None, False, False
-        elif net_name in ['rnnet', 'gru', 'lstm']:
-            output_size, hidden_size, n_layers, dropout, bidirectional, agg, hide = net_params
-            net = rnnet.RNNet(input_size, hidden_size, output_size, n_layers, dropout, bidirectional, agg, hide, net_name=net_name)
-            lamb, temp, gumbel, adv = None, None, False, False
-        elif net_name == 'scionnet':
-            output_size, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, lamb, temp, adv, hard, dropout = net_params
-            net = scionnet.SCIONNet(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=adv, hard=hard, dropout=dropout, in_channels=input_size, out_channels=output_size, H_in=seq_len)
-        
-        net.eval()
-        net.to(device)
+        net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx, attr=True)
+        net.temp = 0.1
 
-        if os.path.exists(outfilek):
-            saved_state = torch.load(outfilek, map_location=lambda storage, loc: storage)
-            net.load_state_dict(saved_state)
+        net.train()
+        net.to(device)
 
         coeffs = pd.DataFrame()
 
-        for dataset in [train, val]:
+        for dataset in datasets:
             for i in trange(len(dataset)):
                 x, y, b = dataset.__getitem__(i)
                 input = x.view(1, x.shape[0], x.shape[1])

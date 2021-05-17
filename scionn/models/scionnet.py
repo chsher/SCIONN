@@ -87,7 +87,8 @@ class Encoder(nn.Module):
         return y
 
 class SCIONNet(nn.Module):
-    def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=False, hard=False, dropout=0.5, in_channels=500, out_channels=1, H_in=7):
+    def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=False, hard=False, 
+        dropout=0.5, in_channels=500, out_channels=1, H_in=7, hide=False):
         super(SCIONNet, self).__init__()
 
         self.gumbel = gumbel
@@ -95,6 +96,7 @@ class SCIONNet(nn.Module):
         self.device = device
         self.adv = adv
         self.hard = hard
+        self.hide = hide
 
         self.gen = Generator(n_conv_layers, kernel_size, n_conv_filters, hidden_size[1], n_layers, in_channels=in_channels)
         self.enc = Encoder(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, in_channels=in_channels, H_in=H_in)
@@ -122,6 +124,7 @@ class SCIONNet(nn.Module):
             x_adv = x_adv.transpose(0, 1).transpose(1, 2)
             output_adv = self.enc(x_adv)
             return output_keep, keep, output_adv
-        else:
+        elif not self.hide:
             return output_keep, keep
-
+        else:
+            return output_keep

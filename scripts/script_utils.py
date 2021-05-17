@@ -8,6 +8,7 @@ def parse_args():
 
     # files
     parser.add_argument('--infile', type=str, default=MMR_FILE, help='file path to anndata object')
+    parser.add_argument('--val_infile', type=str, default=None, help='file path to val/test anndata object')
     parser.add_argument('--outfile', type=str, default='drive/My Drive/temp.pt', help='file path to save the model state dict')
     parser.add_argument('--statsfile', type=str, default='drive/My Drive/temp.pkl', help='file path to save the per-epoch val stats')
     parser.add_argument('--attrfile', type=str, default='drive/My Drive/temp.csv', help='file path to save the attributions')

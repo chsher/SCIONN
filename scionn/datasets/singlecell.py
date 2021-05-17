@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 
 class SingleCellDataset(Dataset):
     def __init__(self, adata, pt_idxs, pt_labels, idxs, batch_size, seq_len, input_size, baselineStats=None, trainBaseline=False, returnBase=False, 
-        multiplier=2, details=False, random_state=None):
+        baseOnly=False, multiplier=2, details=False, random_state=None):
 
         self.adata = adata
         self.pt_idxs = pt_idxs
@@ -20,12 +20,13 @@ class SingleCellDataset(Dataset):
         self.batch_size = batch_size
         self.seq_len = seq_len
         self.input_size = input_size
-        self.trainBaseline = trainBaseline
         self.baselineStats = baselineStats
+        self.trainBaseline = trainBaseline
+        self.returnBase = returnBase
+        self.baseOnly = baseOnly
         self.multiplier = multiplier
         self.random_state = random_state
         self.details = details
-        self.returnBase = returnBase
 
         try:
             self.n_labels = len(set(self.pt_labels.values()))
@@ -52,12 +53,15 @@ class SingleCellDataset(Dataset):
 
     def __len__(self):    
         if self.trainBaseline:
-            return self.batch_size * 2
+            if self.baseOnly:
+                return self.batch_size
+            else:
+                return self.batch_size * 2
         else:
             return self.batch_size
 
     def __getitem__(self, idx):
-        if self.trainBaseline and idx >= len(self.idxs):
+        if (self.trainBaseline and idx >= len(self.idxs)) or self.baseOnly:
             x = self.xb
             y = torch.FloatTensor([idx % self.n_labels])
             b_idxs = None

@@ -2,9 +2,12 @@ import torch
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
+import pdb
+
 PRINT_STMT = 'Epoch: {0:3d}, Batch: {1:3d}, {2:5} BCE1: {3:7.4f}, BCE2: {4:7.4f}, Omega: {5:7.4f}, AUC: {6:7.4f}, Frac: {7:9.6f}'
 
 def run_training_loop(e, train_loader, net, loss_fn, optimizer, device, lamb=None, temp=None, gumbel=False, adv=False, blabel='Train', verbose=True):
+    
     net.train()
     net.to(device)
 
