@@ -18,11 +18,6 @@ from scionn.learn import trainer
 
 import pdb
 
-MMR_TO_IDX = {
-    'MSS': 0,
-    'MSI': 1
-}
-
 def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_params, outfile, statsfile, device, kfold=10, ylabel='MMRLabel', 
     ptlabel='PatientBarcode', smlabel='PatientTypeID', scale=True, returnBase=True, bdata=None, pin_memory=True, random_state=32921, verbose=True):
 
@@ -56,10 +51,10 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
                     'temp_best': temp}, f)
 
 def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfile, statsfile, attrfile, device, kfold=10, ylabel='MMRLabel', 
-    ptlabel='PatientBarcode', smlabel='PatientTypeID', ctlabel='v11_bot', scale=True, trainBaseline=True, returnBase=True, bdata=None, random_state=32921, verbose=True):
+    ptlabel='PatientBarcode', smlabel='PatientTypeID', ctlabel='v11_bot', scale=True, trainBaseline=True, returnBase=True, bdata=None, 
+    random_state=32921, verbose=True):
 
     input_size = adata.shape[1]
-    adata.obs[ylabel] = adata.obs[label].apply(lambda x: MMR_TO_IDX[x])
 
     splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
@@ -107,3 +102,38 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
 
         coeffs.fillna(0, inplace=True)
         coeffs.to_csv(attrfilek)
+
+def compare_groundtruth(kfold, groundtruth1, groundtruth2, statsfile, attrfile, compare_sd=False):
+    
+    n = len(groundtruth1) + len(groundtruth2)
+
+    for kidx in trange(kfold):
+        a = attrfile.split('.')
+        a[0] = a[0] + '_' + str(kidx).zfill(2)
+        attrfilek = '.'.join(a)
+
+        coeffs = pd.read_csv(attrfilek, index_col=[0,1], header=[0,1])
+        coeffs = coeffs.loc[(1, ), ]
+
+        t = coeffs.sum(axis=0) 
+        keep = t.sort_values(ascending=False)[:n].index
+        total = np.sum([(i[0] in groundtruth1 and i[1] == 1) or (i[0] in groundtruth2 and i[1] == 2) for i in keep])
+
+        print('k: {0:2}, top {1:3}, n_correct: {2:3}, n_total: {3:3}, fr_correct: {4:.4f}'.format(kidx, n, len(total), n, len(total) / n))
+        
+        with open(statsfile, 'ab') as f:
+            pickle.dump([kidx, n, len(total), n, len(total) / n], f)
+
+        if compare_sd:
+            m = t.mean()
+            s = t.std()
+
+            for sd in [0.5, 1.0, 1.5, 2.0]:
+                keep = coeffs.columns[(t > m + sd * s)]
+
+                if len(keep) > 0:
+                    total = np.sum([(i[0] in groundtruth1 and i[1] == 1) or (i[0] in groundtruth2 and i[1] == 2) for i in keep])
+                    print('k: {0:2}, sd: {1:.1f}, n_correct: {2:3}, n_total: {3:3}, fr_correct: {4:.4f}'.format(kidx, sd, len(total), len(keep), len(total) / len(keep)))
+
+                    with open(statsfile, 'ab') as f:
+                        pickle.dump([kidx, sd, len(total), len(keep), len(total) / len(keep)], f)

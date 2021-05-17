@@ -68,6 +68,11 @@ if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'scionnet']:
             device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, smlabel=args.smlabel, ctlabel=args.ctlabel, scale=args.scale, 
             trainBaseline=args.train_baseline, returnBase=args.return_baseline, bdata=bdata, random_state=args.random_state, verbose=args.verbose)
 
+        if ('keep' in adata.var.columns) and ('prog_gene' in adata.var.columns) and ('program' in adata.var.columns):
+            groundtruth1 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & (adata.var['program'] == 1), :].index
+            groundtruth2 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & (adata.var['program'] == 2), :].index
+            attributer.compare_groundtruth(args.kfold, groundtruth1, groundtruth2, args.statsfile, args.attrfile, compare_sd=True)
+
 elif args.net_name in ['LR', 'RF']:
     splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, args.ylabel, args.ptlabel, args.kfold, random_state=args.random_state)
 
