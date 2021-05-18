@@ -69,8 +69,8 @@ if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'scionnet']:
             trainBaseline=args.train_baseline, returnBase=args.return_baseline, bdata=bdata, random_state=args.random_state, verbose=args.verbose)
 
         if ('keep' in adata.var.columns) and ('prog_gene' in adata.var.columns) and ('program' in adata.var.columns):
-            groundtruth1 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & (adata.var['program'] in [1, 3]), :].index
-            groundtruth2 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & (adata.var['program'] in [2, 3]), :].index
+            groundtruth1 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & ((adata.var['program'] == 1) | (adata.var['program'] == 3)), :].index
+            groundtruth2 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & ((adata.var['program'] == 2) | (adata.var['program'] == 3)), :].index
             attributer.compare_groundtruth(args.kfold, groundtruth1, groundtruth2, args.statsfile, args.attrfile, compare_sd=True)
 
 elif args.net_name in ['LR', 'RF']:

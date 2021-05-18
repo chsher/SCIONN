@@ -29,7 +29,7 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
     input_size = adata.shape[1]
     loss_fn = nn.BCEWithLogitsLoss()
 
-    splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, ylabel, ptlabel, kfold, bdata=bdata, random_state=random_state)
+    splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
     for kidx in trange(kfold):
         a = outfile.split('.')

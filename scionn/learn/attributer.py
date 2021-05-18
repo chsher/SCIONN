@@ -65,7 +65,7 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
 
         datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
             scale=scale, trainBaseline=False, returnBase=False, details=True, bdata=bdata, random_state=random_state)
-        xb = train.xb
+        xb = datasets[0].xb
 
         net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx, attr=True)
         net.temp = 0.1
@@ -117,12 +117,12 @@ def compare_groundtruth(kfold, groundtruth1, groundtruth2, statsfile, attrfile, 
 
         t = coeffs.sum(axis=0) 
         keep = t.sort_values(ascending=False)[:n].index
-        total = np.sum([(i[0] in groundtruth1 and i[1] == 1) or (i[0] in groundtruth2 and i[1] == 2) for i in keep])
+        total = np.sum([(i[0] in groundtruth1 and i[1] == '1') or (i[0] in groundtruth2 and i[1] == '2') for i in keep])
 
-        print('k: {0:2}, top {1:3}, n_correct: {2:3}, n_total: {3:3}, fr_correct: {4:.4f}'.format(kidx, n, len(total), n, len(total) / n))
+        print('k: {0:2}, top {1:3}, n_correct: {2:3}, n_total: {3:3}, fr_correct: {4:.4f}'.format(kidx, n, total, n, total / n))
         
         with open(statsfile, 'ab') as f:
-            pickle.dump([kidx, n, len(total), n, len(total) / n], f)
+            pickle.dump([kidx, n, total, n, total / n], f)
 
         if compare_sd:
             m = t.mean()
@@ -132,8 +132,8 @@ def compare_groundtruth(kfold, groundtruth1, groundtruth2, statsfile, attrfile, 
                 keep = coeffs.columns[(t > m + sd * s)]
 
                 if len(keep) > 0:
-                    total = np.sum([(i[0] in groundtruth1 and i[1] == 1) or (i[0] in groundtruth2 and i[1] == 2) for i in keep])
-                    print('k: {0:2}, sd: {1:.1f}, n_correct: {2:3}, n_total: {3:3}, fr_correct: {4:.4f}'.format(kidx, sd, len(total), len(keep), len(total) / len(keep)))
+                    total = np.sum([(i[0] in groundtruth1 and i[1] == '1') or (i[0] in groundtruth2 and i[1] == '2') for i in keep])
+                    print('k: {0:2}, sd: {1:.1f}, n_correct: {2:3}, n_total: {3:3}, fr_correct: {4:.4f}'.format(kidx, sd, total, len(keep), total / len(keep)))
 
                     with open(statsfile, 'ab') as f:
-                        pickle.dump([kidx, sd, len(total), len(keep), len(total) / len(keep)], f)
+                        pickle.dump([kidx, sd, total, len(keep), total / len(keep)], f)

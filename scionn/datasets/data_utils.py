@@ -80,7 +80,7 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
         trainBaseline=trainBaseline, returnBase=returnBase, baseOnly=baseOnly, details=details, random_state=random_state)
 
     if returnTensors:
-        if bdata is None:.
+        if bdata is None:
             X_train, X_val, X_test = cdata.X.todense(), ddata.X.todense(), edata.X.todense()
             Y_train, Y_val, Y_test = cdata.obs.loc[:, ylabel].astype(int), ddata.obs.loc[:, ylabel].astype(int), edata.obs.loc[:, ylabel].astype(int)
             return X_train, Y_train, X_val, Y_val, X_test, Y_test
