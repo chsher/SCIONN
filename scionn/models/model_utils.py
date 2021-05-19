@@ -21,7 +21,7 @@ def load_model(net_name, net_params, input_size, seq_len, device, outfilek, stat
         lamb, temp, gumbel, adv = np.nan, np.nan, False, False
 
     elif net_name in ['rnnet', 'gru', 'lstm']:
-        output_size, hidden_size, n_layers, dropout, bidirectional, agg, hide = net_params
+        output_size, hidden_size, n_layers, bidirectional, agg, hide, dropout = net_params
         net = rnnet.RNNet(input_size, hidden_size, output_size, n_layers, dropout, bidirectional, agg, hide, net_name=net_name)
         lamb, temp, gumbel, adv = np.nan, np.nan, False, False
 

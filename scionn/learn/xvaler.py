@@ -105,7 +105,7 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
         saved_state = torch.load(outfilek, map_location=lambda storage, loc: storage)
         net.load_state_dict(saved_state)
 
-        loss, auc, frac_tiles = trainer.run_validation_loop(e, test_loader, net, loss_fn, device, lamb=best_lamb, temp=best_temp, gumbel=gumbel, 
+        loss, auc, frac_tiles = trainer.run_validation_loop(0, test_loader, net, loss_fn, device, lamb=best_lamb, temp=best_temp, gumbel=gumbel, 
             adv=adv, verbose=verbose, blabel=blabel.title())
 
         print(PRINT_STMT.format(best_epoch, loss, auc, frac_tiles, best_lamb, best_temp, 'Overall', blabel.title()))

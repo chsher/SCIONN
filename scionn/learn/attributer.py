@@ -36,7 +36,8 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
         loaders = [DataLoader(d, batch_size=len(d), shuffle=False, pin_memory=pin_memory, drop_last=False) for d in datasets]
         
         net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx)
-        net.temp = 0.1
+        if net_name == 'scionnet':
+            net.temp = 0.1
 
         for loader, loader_label in zip(loaders, ['train_base', 'val_base', 'test_base']):
             loss, auc, frac_tiles = trainer.run_validation_loop(0, loader, net, loss_fn, device, lamb=lamb, temp=0.1, gumbel=gumbel, adv=adv, verbose=verbose, blabel=loader_label)
@@ -54,6 +55,7 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
     ptlabel='PatientBarcode', smlabel='PatientTypeID', ctlabel='v11_bot', scale=True, trainBaseline=True, returnBase=True, bdata=None, 
     random_state=32921, verbose=True):
 
+    net_params[-1] = 0.0
     input_size = adata.shape[1]
 
     splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
@@ -68,7 +70,8 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
         xb = datasets[0].xb
 
         net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx, attr=True)
-        net.temp = 0.1
+        if net_name == 'scionnet':
+            net.temp = 0.1
 
         net.train()
         net.to(device)
