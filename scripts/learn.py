@@ -56,12 +56,12 @@ if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'scionnet']:
         xvaler.run_kfold_xvalidation(adata, args.label, args.seq_len, args.batch_size, args.net_name, net_params, args.learning_rate, args.weight_decay, 
             args.patience, args.n_epochs, args.outfile, args.statsfile, device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, 
             smlabel=args.smlabel, training=args.training, validate=args.validate, scale=args.scale, trainBaseline=args.train_baseline, returnBase=args.return_baseline, 
-            bdata=bdata, pin_memory=args.pin_memory, random_state=args.random_state, verbose=args.verbose)
+            bdata=bdata, pin_memory=args.pin_memory, n_workers=args.n_workers, random_state=args.random_state, verbose=args.verbose)
 
     if args.train_baseline:
         attributer.check_baseline_training(adata, args.label, args.seq_len, args.batch_size, args.net_name, net_params, args.outfile, args.statsfile, 
             device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, smlabel=args.smlabel, scale=args.scale, returnBase=args.return_baseline, 
-            bdata=bdata, pin_memory=args.pin_memory, random_state=args.random_state, verbose=args.verbose)
+            bdata=bdata, pin_memory=args.pin_memory, n_workers=args.n_workers, random_state=args.random_state, verbose=args.verbose)
 
     if args.attribution:
         attributer.run_integrated_gradients(adata, args.label, args.seq_len, args.net_name, net_params, args.outfile, args.statsfile, args.attrfile, 

@@ -19,7 +19,7 @@ from scionn.learn import trainer
 import pdb
 
 def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_params, outfile, statsfile, device, kfold=10, ylabel='MMRLabel', 
-    ptlabel='PatientBarcode', smlabel='PatientTypeID', scale=True, returnBase=True, bdata=None, pin_memory=True, random_state=32921, verbose=True):
+    ptlabel='PatientBarcode', smlabel='PatientTypeID', scale=True, returnBase=True, bdata=None, pin_memory=True, n_workers=0, random_state=32921, verbose=True):
 
     input_size = adata.shape[1]
     loss_fn = nn.BCEWithLogitsLoss()
@@ -32,8 +32,11 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
         outfilek = '.'.join(a)
 
         datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
-            batch_size=batch_size, scale=scale, returnBase=returnBase, baseOnly=True, bdata=bdata, random_state=random_state)
-        loaders = [DataLoader(d, batch_size=len(d), shuffle=False, pin_memory=pin_memory, drop_last=False) for d in datasets]
+            batch_size=200, scale=scale, returnBase=returnBase, baseOnly=True, bdata=bdata, random_state=random_state)
+        if batch_size is not None:
+            loaders = [DataLoader(d, batch_size=batch_size, shuffle=False, pin_memory=pin_memory, num_workers=n_workers, drop_last=False) for d in datasets]
+        else:
+            loaders = [DataLoader(d, batch_size=len(d), shuffle=False, pin_memory=pin_memory, num_workers=n_workers, drop_last=False) for d in datasets]
         
         net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx)
         if net_name == 'scionnet':
