@@ -37,11 +37,8 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
         outfilek = '.'.join(a)
 
         datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
-            scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, bdata=bdata, random_state=random_state)
-        if batch_size is not None:
-            loaders = [DataLoader(d, batch_size=batch_size, shuffle=i==0, pin_memory=pin_memory, num_workers=n_workers, drop_last=i==0) for i,d in enumerate(datasets)]
-        else:
-            loaders = [DataLoader(d, batch_size=len(d), shuffle=i==0, pin_memory=pin_memory, num_workers=n_workers, drop_last=i==0) for i,d in enumerate(datasets)]
+            batch_size=batch_size, scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, bdata=bdata, random_state=random_state)
+        loaders = [DataLoader(d, batch_size=len(d), shuffle=i==0, pin_memory=pin_memory, num_workers=n_workers, drop_last=i==0) for i,d in enumerate(datasets)]
 
         net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx)
 

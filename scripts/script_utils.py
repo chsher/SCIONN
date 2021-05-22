@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument('--scale', default=False, action='store_true', help='whether or not to standardize the features')
     parser.add_argument('--kfold', type=int, default=10, help='number of train/val/test splits')
     parser.add_argument('--seq_len', type=int, default=100, help='number of cells per sample')
-    parser.add_argument('--batch_size', type=int, default=200, help='number of samples per batch (check baseline only)')
+    parser.add_argument('--batch_size', type=int, default=200, help='number of samples per batch')
     parser.add_argument('--pin_memory', default=False, action='store_true', help='whether to pin memory during data loading')
     parser.add_argument('--n_workers', type=int, default=0, help='number of workers for data loader')
     parser.add_argument('--random_state', type=int, default=31321, help='random seed of the dataset')

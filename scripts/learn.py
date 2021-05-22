@@ -50,7 +50,7 @@ if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'scionnet']:
     elif args.net_name in ['rnnet', 'gru', 'lstm']:
         net_params = [args.output_size, args.hidden_size[0], args.n_layers, args.bidirectional, args.agg, args.hide, args.dropout] 
     elif args.net_name == 'scionnet':
-        net_params = [args.output_size, args.n_conv_layers, args.kernel_size, args.n_conv_filters, args.hidden_size, args.n_layers, args.gumbel, args.lamb, args.temp, args.adv, args.hard, args.dropout]
+        net_params = [args.output_size, args.n_conv_layers, args.kernel_size, args.n_conv_filters, args.hidden_size, args.n_layers, args.bidirectional, args.gumbel, args.lamb, args.temp, args.adv, args.hard, args.dropout]
 
     if args.training or args.validate or bdata is not None:
         xvaler.run_kfold_xvalidation(adata, args.label, args.seq_len, args.batch_size, args.net_name, net_params, args.learning_rate, args.weight_decay, 

@@ -11,7 +11,7 @@ sys.path.append(dirname(realpath(__file__)))
 from scionn.models import model_utils
 
 class Generator(nn.Module):
-    def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_rnn_layers, dropout=0.5, in_channels=500, out_channels=2):
+    def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_rnn_layers, dropout=0.5, in_channels=500, out_channels=2, bidirectional=True):
         super(Generator, self).__init__()
         self.n_conv_layers = n_conv_layers
         self.kernel_size = kernel_size
@@ -28,8 +28,11 @@ class Generator(nn.Module):
         self.conv = nn.Sequential(*self.conv_layers)
 
         self.lstm = nn.LSTM(in_channels, self.hidden_size, self.n_rnn_layers, batch_first=True, 
-                            dropout=dropout, bidirectional=True) 
-        in_channels = hidden_size * 2
+                            dropout=dropout, bidirectional=bidirectional) 
+        if bidirectional:
+            in_channels = hidden_size * 2
+        else:
+            in_channels = hidden_size
         self.classification_layer = nn.Linear(in_channels, out_channels)
         
     def forward(self, x):
@@ -87,7 +90,7 @@ class Encoder(nn.Module):
 
 class SCIONNet(nn.Module):
     def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=False, hard=False, 
-        dropout=0.5, in_channels=500, out_channels=1, H_in=7, hide=False):
+        dropout=0.5, in_channels=500, out_channels=1, H_in=7, bidirectional=True, hide=False):
         super(SCIONNet, self).__init__()
 
         self.gumbel = gumbel
@@ -97,7 +100,7 @@ class SCIONNet(nn.Module):
         self.hard = hard
         self.hide = hide
 
-        self.gen = Generator(n_conv_layers, kernel_size, n_conv_filters, hidden_size[1], n_layers, in_channels=in_channels)
+        self.gen = Generator(n_conv_layers, kernel_size, n_conv_filters, hidden_size[1], n_layers, in_channels=in_channels, bidirectional=bidirectional)
         self.enc = Encoder(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, in_channels=in_channels, H_in=H_in)
     
     def forward(self, x):
