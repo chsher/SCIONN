@@ -73,6 +73,7 @@ def run_validation_loop(e, val_loader, net, loss_fn, device, lamb=None, temp=Non
     y_tracker, y_prob_tracker = np.array([]), np.array([])
 
     for b, (input, label, base) in enumerate(val_loader):
+        
         input, label, base = input.to(device), label.to(device), base.to(device)
         
         outputs = net(input)

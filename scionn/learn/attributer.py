@@ -24,7 +24,7 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
     input_size = adata.shape[1]
     loss_fn = nn.BCEWithLogitsLoss()
 
-    splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
+    splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
     for kidx in trange(kfold):
         a = outfile.split('.')
@@ -58,7 +58,7 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
     net_params[-1] = 0.0
     input_size = adata.shape[1]
 
-    splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
+    splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
     for kidx in trange(kfold):
         a = outfile.split('.')

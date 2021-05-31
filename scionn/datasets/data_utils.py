@@ -8,6 +8,8 @@ from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
 from scionn.datasets import singlecell
 
+import pdb
+
 def make_splits(adata, ylabel, ptlabel, kfold, random_state=None):
     if random_state is not None:
         np.random.seed(random_state)
@@ -24,7 +26,7 @@ def make_splits(adata, ylabel, ptlabel, kfold, random_state=None):
 
     splits_msi, splits_mss = np.array_split(idxs_msi, kfold), np.array_split(idxs_mss, kfold)
 
-    return splits_msi, splits_mss, idxs_msi, idxs_mss
+    return splits_msi, splits_mss, idxs_msi, idxs_mss, kfold
 
 def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, batch_size=None,
     scale=True, trainBaseline=True, returnBase=True, baseOnly=False, details=False, returnTensors=False, bdata=None, random_state=32921):
@@ -32,7 +34,7 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
     input_size = adata.shape[1]
 
     bidxs = np.concatenate((splits_msi[kidx], splits_mss[kidx]))
-    cidxs = np.concatenate((splits_msi[(kidx + 1) % 10], splits_mss[(kidx + 1) % 10]))
+    cidxs = np.concatenate((splits_msi[(kidx + 1) % kfold], splits_mss[(kidx + 1) % kfold]))
     aidxs = np.concatenate((np.setdiff1d(idxs_msi, np.concatenate((bidxs, cidxs))), np.setdiff1d(idxs_mss, np.concatenate((bidxs, cidxs)))))
 
     if bdata is None:
@@ -45,7 +47,7 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
         bidxs = ddata.obs[smlabel].unique()
         b_labels = {k: ddata.obs.loc[ddata.obs[smlabel] == k, ylabel][0] for k in bidxs}
         b_idxs = {k: np.nonzero(ddata.obs[smlabel].to_numpy() == k)[0] for k in bidxs}
-
+        
         dataset_sizes = [len(aidxs), len(bidxs), len(cidxs)] if batch_size is None else [batch_size] * 3
     else:
         bidxs = bdata.obs[smlabel].unique()
