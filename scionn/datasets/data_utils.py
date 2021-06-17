@@ -16,6 +16,7 @@ def make_splits(adata, ylabel, ptlabel, kfold, random_state=None):
         
     idxs_msi = adata.obs.loc[adata.obs[ylabel] == 1, ptlabel].unique()
     idxs_mss = adata.obs.loc[adata.obs[ylabel] == 0, ptlabel].unique()
+    idxs_mss = np.setdiff1d(idxs_mss, idxs_msi)
 
     if len(idxs_msi) < kfold or len(idxs_mss) < kfold:
         kfold = min(len(idxs_msi), len(idxs_mss))
@@ -37,17 +38,22 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
     cidxs = np.concatenate((splits_msi[(kidx + 1) % kfold], splits_mss[(kidx + 1) % kfold]))
     aidxs = np.concatenate((np.setdiff1d(idxs_msi, np.concatenate((bidxs, cidxs))), np.setdiff1d(idxs_mss, np.concatenate((bidxs, cidxs)))))
 
+    cdata = adata[adata.obs[ptlabel].isin(aidxs), :]
+    aidxs = cdata.obs[smlabel].unique()
+    a_labels = {k: cdata.obs.loc[cdata.obs[smlabel] == k, ylabel][0] for k in aidxs}
+    a_idxs = {k: np.nonzero(cdata.obs[smlabel].to_numpy() == k)[0] for k in aidxs}
+
     if bdata is None:
+        ddata = adata[adata.obs[ptlabel].isin(bidxs), :]
+        bidxs = ddata.obs[smlabel].unique()
+        b_labels = {k: ddata.obs.loc[ddata.obs[smlabel] == k, ylabel][0] for k in bidxs}
+        b_idxs = {k: np.nonzero(ddata.obs[smlabel].to_numpy() == k)[0] for k in bidxs}
+
         edata = adata[adata.obs[ptlabel].isin(cidxs), :]
         cidxs = edata.obs[smlabel].unique()
         c_labels = {k: edata.obs.loc[edata.obs[smlabel] == k, ylabel][0] for k in cidxs}
         c_idxs = {k: np.nonzero(edata.obs[smlabel].to_numpy() == k)[0] for k in cidxs}
 
-        ddata = adata[adata.obs[ptlabel].isin(bidxs), :]
-        bidxs = ddata.obs[smlabel].unique()
-        b_labels = {k: ddata.obs.loc[ddata.obs[smlabel] == k, ylabel][0] for k in bidxs}
-        b_idxs = {k: np.nonzero(ddata.obs[smlabel].to_numpy() == k)[0] for k in bidxs}
-        
         dataset_sizes = [len(aidxs), len(bidxs), len(cidxs)] if batch_size is None else [batch_size] * 3
     else:
         bidxs = bdata.obs[smlabel].unique()
@@ -55,11 +61,6 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
         b_idxs = {k: np.nonzero(bdata.obs[smlabel].to_numpy() == k)[0] for k in bidxs}
 
         dataset_sizes = [len(aidxs), len(bidxs)] if batch_size is None else [batch_size] * 2
-
-    cdata = adata[adata.obs[ptlabel].isin(aidxs), :]
-    aidxs = cdata.obs[smlabel].unique()
-    a_labels = {k: cdata.obs.loc[cdata.obs[smlabel] == k, ylabel][0] for k in aidxs}
-    a_idxs = {k: np.nonzero(cdata.obs[smlabel].to_numpy() == k)[0] for k in aidxs}
     
     if scale:
         scaler = StandardScaler()

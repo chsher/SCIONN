@@ -53,7 +53,7 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
 
 def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfile, statsfile, attrfile, device, kfold=10, ylabel='MMRLabel', 
     ptlabel='PatientBarcode', smlabel='PatientTypeID', ctlabel='v11_bot', scale=True, trainBaseline=True, returnBase=True, bdata=None, 
-    random_state=32921, verbose=True):
+    num_replicates=10, random_state=32921, verbose=True):
 
     net_params[-1] = 0.0
     input_size = adata.shape[1]
@@ -78,26 +78,27 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
 
         coeffs = pd.DataFrame()
 
-        for dataset in datasets:
-            for i in trange(len(dataset)):
-                x, y, b = dataset.__getitem__(i)
-                input = x.view(1, x.shape[0], x.shape[1])
-                baseline = xb.view(1, x.shape[0], x.shape[1])
+        for nr in trange(num_replicates):
+            for dataset in datasets:
+                for i in trange(len(dataset)):
+                    x, y, b = dataset.__getitem__(i)
+                    input = x.view(1, x.shape[0], x.shape[1])
+                    baseline = xb.view(1, x.shape[0], x.shape[1])
 
-                igd = IntegratedGradients(net)
-                attributions, delta = igd.attribute(input.to(device), baseline.to(device), return_convergence_delta=True)
+                    igd = IntegratedGradients(net)
+                    attributions, delta = igd.attribute(input.to(device), baseline.to(device), return_convergence_delta=True)
 
-                new_ids = np.array(b).flatten()
-                new_ats = attributions.cpu().numpy().reshape((-1, adata.shape[1]))
-                
-                df = pd.DataFrame(np.concatenate((new_ids[..., np.newaxis], new_ats), axis=1), columns=['idx'] + list(adata.var.index))
-                df['cl'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], ctlabel])
-                df['y'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], ylabel])
-                df['pt'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], smlabel])
-                
-                coeffs2 = df.iloc[:, 1:].groupby(['cl', 'y', 'pt']).mean().fillna(0)
-                coeffs3 = coeffs2.swaplevel(i=0, j=1).unstack(1).fillna(0)
-                coeffs = pd.concat([coeffs, coeffs3])
+                    new_ids = np.array(b).flatten()
+                    new_ats = attributions.cpu().numpy().reshape((-1, adata.shape[1]))
+                    
+                    df = pd.DataFrame(np.concatenate((new_ids[..., np.newaxis], new_ats), axis=1), columns=['idx'] + list(adata.var.index))
+                    df['cl'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], ctlabel])
+                    df['y'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], ylabel])
+                    df['pt'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], smlabel])
+                    
+                    coeffs2 = df.iloc[:, 1:].groupby(['cl', 'y', 'pt']).mean().fillna(0)
+                    coeffs3 = coeffs2.swaplevel(i=0, j=1).unstack(1).fillna(0)
+                    coeffs = pd.concat([coeffs, coeffs3])
 
         a = attrfile.split('.')
         a[0] = a[0] + '_' + str(kidx).zfill(2)

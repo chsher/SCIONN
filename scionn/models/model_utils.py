@@ -28,7 +28,7 @@ def load_model(net_name, net_params, input_size, seq_len, device, outfilek, stat
     elif net_name == 'scionnet':
         output_size, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, bidirectional, gumbel, lamb, temp, adv, hard, dropout = net_params
 
-        if os.path.exists(statsfile):
+        if statsfile is not None and os.path.exists(statsfile):
             with open(statsfile, 'rb') as f:
                 while 1:
                     try:
@@ -43,7 +43,7 @@ def load_model(net_name, net_params, input_size, seq_len, device, outfilek, stat
         net = scionnet.SCIONNet(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=adv, hard=hard, 
             dropout=dropout, in_channels=input_size, out_channels=output_size, H_in=seq_len, bidirectional=bidirectional, hide=attr)
     
-    if os.path.exists(outfilek):
+    if outfilek is not None and os.path.exists(outfilek):
         saved_state = torch.load(outfilek, map_location=lambda storage, loc: storage)
         net.load_state_dict(saved_state)
 
