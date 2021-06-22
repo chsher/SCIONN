@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=None, kidx=None, attr=False):
+def load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=None, kidx=None, num_embeddings=None, attr=False):
     if net_name == 'logreg':
         output_size, dropout = net_params
         net = logreg.LogReg(input_size, seq_len, output_size, dropout)
@@ -40,8 +40,8 @@ def load_model(net_name, net_params, input_size, seq_len, device, outfilek, stat
                     except EOFError:
                         break
 
-        net = scionnet.SCIONNet(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=adv, hard=hard, 
-            dropout=dropout, in_channels=input_size, out_channels=output_size, H_in=seq_len, bidirectional=bidirectional, hide=attr)
+        net = scionnet.SCIONNet(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=adv, hard=hard, dropout=dropout, 
+            in_channels=input_size, out_channels=output_size, H_in=seq_len, bidirectional=bidirectional, num_embeddings=num_embeddings, hide=attr)
     
     if outfilek is not None and os.path.exists(outfilek):
         saved_state = torch.load(outfilek, map_location=lambda storage, loc: storage)

@@ -19,10 +19,12 @@ from scionn.learn import trainer
 import pdb
 
 def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_params, outfile, statsfile, device, kfold=10, ylabel='MMRLabel', 
-    ptlabel='PatientBarcode', smlabel='PatientTypeID', scale=True, returnBase=True, bdata=None, pin_memory=True, n_workers=0, random_state=32921, verbose=True):
+    ptlabel='PatientBarcode', smlabel='PatientTypeID', scale=True, returnBase=True, bdata=None, pin_memory=True, n_workers=0, random_state=32921, 
+    verbose=True, catlabel=None):
 
     input_size = adata.shape[1]
     loss_fn = nn.BCEWithLogitsLoss()
+    num_embeddings = max(adata.obs[catlabel]) + 1 if catlabel is not None else None
 
     splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
@@ -32,10 +34,11 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
         outfilek = '.'.join(a)
 
         datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
-            batch_size=batch_size, scale=scale, returnBase=returnBase, baseOnly=True, bdata=bdata, random_state=random_state)
+            batch_size=batch_size, scale=scale, returnBase=returnBase, baseOnly=True, bdata=bdata, random_state=random_state, catlabel=catlabel)
         loaders = [DataLoader(d, batch_size=len(d), shuffle=False, pin_memory=pin_memory, num_workers=n_workers, drop_last=False) for d in datasets]
         
-        net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx)
+        net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx,
+            num_embeddings=num_embeddings)
         if net_name == 'scionnet':
             net.temp = 0.1
 
@@ -53,10 +56,11 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
 
 def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfile, statsfile, attrfile, device, kfold=10, ylabel='MMRLabel', 
     ptlabel='PatientBarcode', smlabel='PatientTypeID', ctlabel='v11_bot', scale=True, trainBaseline=True, returnBase=True, bdata=None, 
-    num_replicates=10, random_state=32921, verbose=True):
+    num_replicates=10, random_state=32921, verbose=True, catlabel=None):
 
     net_params[-1] = 0.0
     input_size = adata.shape[1]
+    num_embeddings = max(adata.obs[catlabel]) + 1 if catlabel is not None else None
 
     splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
@@ -66,10 +70,11 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
         outfilek = '.'.join(a)
 
         datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
-            scale=scale, trainBaseline=False, returnBase=False, details=True, bdata=bdata, random_state=random_state)
+            scale=scale, trainBaseline=False, returnBase=False, details=True, bdata=bdata, random_state=random_state, catlabel=catlabel)
         xb = datasets[0].xb
 
-        net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx, attr=True)
+        net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx, 
+            num_embeddings=num_embeddings, attr=True)
         if net_name == 'scionnet':
             net.temp = 0.1
 
@@ -91,7 +96,7 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
                     new_ids = np.array(b).flatten()
                     new_ats = attributions.cpu().numpy().reshape((-1, adata.shape[1]))
                     
-                    df = pd.DataFrame(np.concatenate((new_ids[..., np.newaxis], new_ats), axis=1), columns=['idx'] + list(adata.var.index))
+                    df = pd.DataFrame(np.concatenate((new_ids[..., np.newaxis], new_ats), axis=1), columns=['idx'] + list(adata.var.index) + ([catlabel] if catlabel is not None else []))
                     df['cl'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], ctlabel])
                     df['y'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], ylabel])
                     df['pt'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], smlabel])

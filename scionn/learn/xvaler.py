@@ -24,10 +24,11 @@ PRINT_STMT = '{6} best {7} epoch: {0:d}, loss: {1:.4f}, AUC: {2:.4f}, frac: {3:.
 
 def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_params, learning_rate, weight_decay, patience, num_epochs, outfile, statsfile, 
     device, kfold=10, ylabel='MMRLabel', ptlabel='PatientBarcode', smlabel='PatientTypeID', training=True, validate=True, scale=True, trainBaseline=True, 
-    returnBase=True, bdata=None, pin_memory=True, n_workers=0, random_state=32921, verbose=True):
+    returnBase=True, bdata=None, pin_memory=True, n_workers=0, random_state=32921, verbose=True, catlabel=None):
 
     input_size = adata.shape[1]
     loss_fn = nn.BCEWithLogitsLoss()
+    num_embeddings = max(adata.obs[catlabel]) + 1 if catlabel is not None else None
 
     splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
@@ -38,10 +39,11 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
 
         if (not os.path.exists(outfilek)) or (bdata is not None):
             datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
-                batch_size=batch_size, scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, bdata=bdata, random_state=random_state)
+                batch_size=batch_size, scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, bdata=bdata, random_state=random_state, catlabel=catlabel)
             loaders = [DataLoader(d, batch_size=len(d), shuffle=i==0, pin_memory=pin_memory, num_workers=n_workers, drop_last=i==0) for i,d in enumerate(datasets)]
             
-            net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, statsfile=statsfile, kidx=kidx)
+            net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, 
+                statsfile=statsfile, kidx=kidx, num_embeddings=num_embeddings)
 
             optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=patience, verbose=verbose)

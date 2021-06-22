@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 
 class SingleCellDataset(Dataset):
     def __init__(self, adata, pt_idxs, pt_labels, idxs, batch_size, seq_len, input_size, baselineStats=None, trainBaseline=False, returnBase=False, 
-        baseOnly=False, multiplier=2, details=False, random_state=None):
+        baseOnly=False, multiplier=2, details=False, pt_cats=None, random_state=None):
 
         self.adata = adata
         self.pt_idxs = pt_idxs
@@ -25,8 +25,10 @@ class SingleCellDataset(Dataset):
         self.returnBase = returnBase
         self.baseOnly = baseOnly
         self.multiplier = multiplier
-        self.random_state = random_state
         self.details = details
+        self.pt_cats = pt_cats
+        self.n_cats = np.max([np.max(v) for k,v in pt_cats.items()]) + 1 if pt_cats is not None else None
+        self.random_state = random_state
 
         try:
             self.n_labels = len(set(self.pt_labels.values()))
@@ -67,6 +69,9 @@ class SingleCellDataset(Dataset):
             b_idxs = None
             base = torch.FloatTensor([1.0])
 
+            if self.pt_cats is not None:
+                x = torch.cat((x, torch.FloatTensor([idx % self.n_cats]).unsqueeze(-1)))
+
         else:
             idx = int(idx % len(self.idxs))
             b = self.idxs[idx]
@@ -80,6 +85,9 @@ class SingleCellDataset(Dataset):
             x = torch.FloatTensor(self.adata[b_idxs, :].X.todense().reshape(-1, self.input_size))
             y = torch.FloatTensor([self.pt_labels[b]])
             base = torch.FloatTensor([0.0])
+
+            if self.pt_cats is not None:
+                x = torch.cat((x, torch.FloatTensor([self.pt_cats[b]]).unsqueeze(-1)))
             
         if self.details:
             return x, y, b_idxs

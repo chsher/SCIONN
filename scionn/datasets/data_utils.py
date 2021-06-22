@@ -30,7 +30,7 @@ def make_splits(adata, ylabel, ptlabel, kfold, random_state=None):
     return splits_msi, splits_mss, idxs_msi, idxs_mss, kfold
 
 def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, batch_size=None,
-    scale=True, trainBaseline=True, returnBase=True, baseOnly=False, details=False, returnTensors=False, bdata=None, random_state=32921):
+    scale=True, trainBaseline=True, returnBase=True, baseOnly=False, details=False, returnTensors=False, bdata=None, random_state=32921, catlabel=None):
 
     input_size = adata.shape[1]
 
@@ -42,23 +42,27 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
     aidxs = cdata.obs[smlabel].unique()
     a_labels = {k: cdata.obs.loc[cdata.obs[smlabel] == k, ylabel][0] for k in aidxs}
     a_idxs = {k: np.nonzero(cdata.obs[smlabel].to_numpy() == k)[0] for k in aidxs}
+    a_cats = {k: np.nonzero(cdata.obs[catlabel].to_numpy() == k)[0] for k in aidxs} if catlabel is not None else None
 
     if bdata is None:
         ddata = adata[adata.obs[ptlabel].isin(bidxs), :]
         bidxs = ddata.obs[smlabel].unique()
         b_labels = {k: ddata.obs.loc[ddata.obs[smlabel] == k, ylabel][0] for k in bidxs}
         b_idxs = {k: np.nonzero(ddata.obs[smlabel].to_numpy() == k)[0] for k in bidxs}
+        b_cats = {k: np.nonzero(ddata.obs[catlabel].to_numpy() == k)[0] for k in bidxs} if catlabel is not None else None
 
         edata = adata[adata.obs[ptlabel].isin(cidxs), :]
         cidxs = edata.obs[smlabel].unique()
         c_labels = {k: edata.obs.loc[edata.obs[smlabel] == k, ylabel][0] for k in cidxs}
         c_idxs = {k: np.nonzero(edata.obs[smlabel].to_numpy() == k)[0] for k in cidxs}
+        c_cats = {k: np.nonzero(edata.obs[catlabel].to_numpy() == k)[0] for k in cidxs} if catlabel is not None else None
 
         dataset_sizes = [len(aidxs), len(bidxs), len(cidxs)] if batch_size is None else [batch_size] * 3
     else:
         bidxs = bdata.obs[smlabel].unique()
         b_labels = {k: bdata.obs.loc[bdata.obs[smlabel] == k, ylabel][0] for k in bidxs}
         b_idxs = {k: np.nonzero(bdata.obs[smlabel].to_numpy() == k)[0] for k in bidxs}
+        b_cats = {k: np.nonzero(bdata.obs[catlabel].to_numpy() == k)[0] for k in bidxs} if catlabel is not None else None
 
         dataset_sizes = [len(aidxs), len(bidxs)] if batch_size is None else [batch_size] * 2
     
@@ -80,7 +84,7 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
         baselineStats = {}
 
     train = singlecell.SingleCellDataset(cdata, a_idxs, a_labels, aidxs, dataset_sizes[0], seq_len, input_size, baselineStats=baselineStats, 
-        trainBaseline=trainBaseline, returnBase=returnBase, baseOnly=baseOnly, details=details, random_state=random_state)
+        trainBaseline=trainBaseline, returnBase=returnBase, baseOnly=baseOnly, details=details, pt_cats=a_cats, random_state=random_state)
 
     if returnTensors:
         if bdata is None:
@@ -96,12 +100,12 @@ def make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, ki
     else:
         if bdata is None:
             val = singlecell.SingleCellDataset(ddata, b_idxs, b_labels, bidxs, dataset_sizes[1], seq_len, input_size, baselineStats=baselineStats, 
-                trainBaseline=False, returnBase=returnBase, baseOnly=baseOnly, details=details, random_state=random_state)
+                trainBaseline=False, returnBase=returnBase, baseOnly=baseOnly, details=details, pt_cats=b_cats, random_state=random_state)
             test = singlecell.SingleCellDataset(edata, c_idxs, c_labels, cidxs, dataset_sizes[2], seq_len, input_size, baselineStats=baselineStats, 
-                trainBaseline=False, returnBase=returnBase, baseOnly=baseOnly, details=details, random_state=random_state)
+                trainBaseline=False, returnBase=returnBase, baseOnly=baseOnly, details=details, pt_cats=c_cats, random_state=random_state)
             return train, val, test
 
         else:
             test = singlecell.SingleCellDataset(bdata, b_idxs, b_labels, bidxs, dataset_sizes[1], seq_len, input_size, baselineStats=baselineStats, 
-                trainBaseline=False, returnBase=returnBase, baseOnly=baseOnly, details=details, random_state=random_state)
+                trainBaseline=False, returnBase=returnBase, baseOnly=baseOnly, details=details, pt_cats=b_cats, random_state=random_state)
             return train, test

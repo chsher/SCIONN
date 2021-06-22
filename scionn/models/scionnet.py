@@ -11,7 +11,8 @@ sys.path.append(dirname(realpath(__file__)))
 from scionn.models import model_utils
 
 class Generator(nn.Module):
-    def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_rnn_layers, dropout=0.5, in_channels=500, out_channels=2, bidirectional=True):
+    def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_rnn_layers, dropout=0.5, in_channels=500, out_channels=2, 
+        bidirectional=True, num_embeddings=None):
         super(Generator, self).__init__()
         self.n_conv_layers = n_conv_layers
         self.kernel_size = kernel_size
@@ -33,18 +34,27 @@ class Generator(nn.Module):
             in_channels = hidden_size * 2
         else:
             in_channels = hidden_size
+
+        if num_embeddings is not None:
+            self.emb = nn.Embedding(num_embeddings, in_channels)
+        else:
+            self.emb = nn.Identity()
+
         self.classification_layer = nn.Linear(in_channels, out_channels)
         
     def forward(self, x):
         # x: BATCH_SIZE x N_CELLS x N_GENES
-        x = torch.transpose(x, 1, 2)
+        if self.emb is None:
+            x = torch.transpose(x, 1, 2)
 
-        embed = self.conv(x)
-        embed = torch.transpose(embed, 1, 2)
+            embed = self.conv(x)
+            embed = torch.transpose(embed, 1, 2)
 
-        self.lstm.flatten_parameters()
-        output, hidden = self.lstm(embed)
-        
+            self.lstm.flatten_parameters()
+            output, hidden = self.lstm(embed)
+        else:
+            output = self.emb(x)
+
         y = self.classification_layer(output)
         return y.squeeze(-1)
 
@@ -90,7 +100,7 @@ class Encoder(nn.Module):
 
 class SCIONNet(nn.Module):
     def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, gumbel, temp, device, adv=False, hard=False, 
-        dropout=0.5, in_channels=500, out_channels=1, H_in=7, bidirectional=True, hide=False):
+        dropout=0.5, in_channels=500, out_channels=1, H_in=7, bidirectional=True, num_embeddings=None, hide=False):
         super(SCIONNet, self).__init__()
 
         self.gumbel = gumbel
@@ -98,16 +108,21 @@ class SCIONNet(nn.Module):
         self.device = device
         self.adv = adv
         self.hard = hard
+        self.num_embeddings = num_embeddings
         self.hide = hide
 
-        self.gen = Generator(n_conv_layers, kernel_size, n_conv_filters, hidden_size[1], n_layers, in_channels=in_channels, bidirectional=bidirectional)
+        self.gen = Generator(n_conv_layers, kernel_size, n_conv_filters, hidden_size[1], n_layers, in_channels=in_channels, 
+            bidirectional=bidirectional, num_embeddings=num_embeddings)
         self.enc = Encoder(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, in_channels=in_channels, H_in=H_in)
     
     def forward(self, x):
         # x: BATCH_SIZE x N_CELLS x N_GENES
         #input = torch.transpose(x, 1, 2)
 
-        output = self.gen(x)
+        if self.num_embeddings is not None:
+            output = self.gen(x[:, :, -1])
+        else:
+            output = self.gen(x)
 
         if self.gumbel:
             keep = model_utils.gumbel_softmax(output, self.temp, self.device, hard=self.hard)
@@ -119,7 +134,10 @@ class SCIONNet(nn.Module):
         x_keep = x.transpose(1, 2).transpose(0, 1) * keep[:, :, -1]
         x_keep = x_keep.transpose(0, 1).transpose(1, 2)
 
-        output_keep = self.enc(x_keep)
+        if self.num_embeddings is not None:
+            output_keep = self.enc(x_keep[:, :, :-1])
+        else:
+            output_keep = self.enc(x_keep)
 
         if self.adv:
             x_adv = x.transpose(1, 2).transpose(0, 1) * (1 - keep[:, :, -1])
