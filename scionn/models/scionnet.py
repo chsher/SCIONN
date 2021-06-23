@@ -120,7 +120,7 @@ class SCIONNet(nn.Module):
         #input = torch.transpose(x, 1, 2)
 
         if self.num_embeddings is not None:
-            output = self.gen(x[:, :, -1])
+            output = self.gen(x[:, :, -1].long())
         else:
             output = self.gen(x)
 

@@ -88,13 +88,18 @@ def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfil
                 for i in trange(len(dataset)):
                     x, y, b = dataset.__getitem__(i)
                     input = x.view(1, x.shape[0], x.shape[1])
-                    baseline = xb.view(1, x.shape[0], x.shape[1])
+
+                    if catlabel is None:
+                        baseline = xb.view(1, x.shape[0], x.shape[1])
+                    else:
+                        x_cat = torch.FloatTensor(np.random.choice(np.arange(num_embeddings), seq_len, replace=True))
+                        baseline = torch.cat((xb.view(1, x.shape[0], x.shape[1] - 1), x_cat.unsqueeze(0).unsqueeze(-1)), dim=-1)
 
                     igd = IntegratedGradients(net)
                     attributions, delta = igd.attribute(input.to(device), baseline.to(device), return_convergence_delta=True)
 
                     new_ids = np.array(b).flatten()
-                    new_ats = attributions.cpu().numpy().reshape((-1, adata.shape[1]))
+                    new_ats = attributions.cpu().numpy().reshape((-1, adata.shape[1] + (1 if catlabel is not None else 0)))
                     
                     df = pd.DataFrame(np.concatenate((new_ids[..., np.newaxis], new_ats), axis=1), columns=['idx'] + list(adata.var.index) + ([catlabel] if catlabel is not None else []))
                     df['cl'] = df['idx'].apply(lambda x: dataset.adata.obs.loc[dataset.adata.obs.index[int(x)], ctlabel])
