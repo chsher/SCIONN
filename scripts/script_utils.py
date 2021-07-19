@@ -26,7 +26,8 @@ def parse_args():
     parser.add_argument('--n_workers', type=int, default=0, help='number of workers for data loader')
     parser.add_argument('--random_state', type=int, default=31321, help='random seed of the dataset')
     parser.add_argument('--return_baseline', default=False, action='store_true', help='whether or not to return baseline indicator')
-    parser.add_argument('--catlabel', type=str, default=None, help='cell category annotation')
+    parser.add_argument('--catlabel', type=str, default=None, help='cell category annotation for categorical labels (deprecated)')
+    parser.add_argument('--freqlabel', type=str, default='v11_bot', help='cell category annotation for frequency prediction')
     
     # model
     parser.add_argument('--net_name', type=str, default='rnnet', help='name of neural network')

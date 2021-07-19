@@ -37,8 +37,7 @@ if args.ylabel in ['MMRLabel', 'ResponseLabel']:
 
 elif args.ylabel in ['InFreq', 'InFreqPD1']:
     if args.ylabel == 'InFreq':
-        #df = adata[~adata.obs['v11_top'].isin(['Epi', 'Strom']), :].obs.groupby([args.smlabel, 'v11_mid'])['batchID'].count()
-        df = adata[~adata.obs['v11_top'].isin(['Epi', 'Strom']), :].obs.groupby([args.smlabel, 'v11_top'])['batchID'].count()
+        df = adata[~adata.obs['v11_top'].isin(['Epi', 'Strom']), :].obs.groupby([args.smlabel, args.freqlabel])['batchID'].count()
     elif args.ylabel == 'InFreqPD1':
         df = adata.obs.groupby([args.smlabel, 'CellTypeB_manual'])['batch'].count()
 
