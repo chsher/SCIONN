@@ -63,6 +63,7 @@ def parse_args():
     parser.add_argument('--train_baseline', default=False, action='store_true', help='whether or not to train the baseline')
     parser.add_argument('--attribution', default=False, action='store_true', help='whether to run integrated gradients')
     parser.add_argument('--ctlabel', type=str, default='v11_bot', help='cell type annotation')
+    parser.add_argument('--num_replicates', type=int, default=10, help='number of times to run attribution per example')
     
     args = parser.parse_args()
     

@@ -1,10 +1,11 @@
 import torch
 import numpy as np
+import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
 
 import pdb
 
-PRINT_STMT = 'Epoch: {0:3d}, Batch: {1:3d}, {2:5} BCE1: {3:7.4f}, BCE2: {4:7.4f}, Omega: {5:7.4f}, AUC: {6:7.4f}, Frac: {7:9.6f}'
+PRINT_STMT = 'Epoch: {0:3d}, Batch: {1:3d}, {2:5} BCE1: {3:7.4f}, BCE2: {4:7.4f}, Omega: {5:7.4f}, {8}: {6:7.4f}, Frac: {7:9.6f}'
 
 def run_training_loop(e, train_loader, net, loss_fn, optimizer, device, lamb=None, temp=None, gumbel=False, adv=False, blabel='Train', verbose=True):
     
@@ -58,12 +59,18 @@ def run_training_loop(e, train_loader, net, loss_fn, optimizer, device, lamb=Non
         optimizer.zero_grad()
         
         try:     
-            auc = roc_auc_score(label.cpu().squeeze(-1).numpy(), output_keep.detach().squeeze(-1).cpu().numpy())
+            if label.shape[1] == 1:
+                y_prob = torch.sigmoid(output_keep.detach())
+                auc = roc_auc_score(label.cpu().squeeze(-1).numpy(), y_prob.cpu().squeeze(-1).numpy())
+            else:
+                y_prob = F.softmax(output_keep.detach(), dim=-1)
+                auc = np.mean(np.abs(label.cpu().squeeze(-1).numpy() - y_prob.cpu().squeeze(-1).numpy()))
         except:
             auc = np.nan
 
         if verbose:
-            print(PRINT_STMT.format(e, b, blabel, *losses, auc, frac_tiles))
+            metric = 'AUC' if label.shape[1] == 1 else 'MAE'
+            print(PRINT_STMT.format(e, b, blabel, *losses, auc, frac_tiles, metric))
 
 def run_validation_loop(e, val_loader, net, loss_fn, device, lamb=None, temp=None, gumbel=True, adv=False, blabel='Val', verbose=True):
     net.eval()
@@ -119,17 +126,26 @@ def run_validation_loop(e, val_loader, net, loss_fn, device, lamb=None, temp=Non
 
         total_loss += loss.detach().cpu().numpy()
         
-        y_prob = torch.sigmoid(output_keep.detach())
-        y_prob_tracker = np.concatenate((y_prob_tracker, y_prob.cpu().squeeze(-1).numpy()))
-        y_tracker = np.concatenate((y_tracker, label.cpu().squeeze(-1).numpy()))
+        if label.shape[1] == 1:
+            y_prob = torch.sigmoid(output_keep.detach())
+            y_prob_tracker = np.concatenate((y_prob_tracker, y_prob.cpu().squeeze(-1).numpy()))
+            y_tracker = np.concatenate((y_tracker, label.cpu().squeeze(-1).numpy()))
+        else:
+            y_prob = F.softmax(output_keep.detach(), dim=-1)
+            y_prob_tracker = np.concatenate((y_prob_tracker, y_prob.cpu().squeeze(-1).numpy().flatten()))
+            y_tracker = np.concatenate((y_tracker, label.cpu().squeeze(-1).numpy().flatten()))
 
-        try:
-            auc = roc_auc_score(label.cpu().squeeze(-1).numpy(), output_keep.detach().cpu().squeeze(-1).numpy())
+        try:     
+            if label.shape[1] == 1:
+                auc = roc_auc_score(label.cpu().squeeze(-1).numpy(), y_prob.cpu().squeeze(-1).numpy())
+            else:
+                auc = np.mean(np.abs(label.cpu().squeeze(-1).numpy() - y_prob.cpu().squeeze(-1).numpy()))
         except:
             auc = np.nan
 
         if verbose:
-            print(PRINT_STMT.format(e, b, blabel, *losses, auc, frac_tiles))
+            metric = 'AUC' if label.shape[1] == 1 else 'MAE'
+            print(PRINT_STMT.format(e, b, blabel, *losses, auc, frac_tiles, metric))
 
     try:
         total_frac = total_znorm / total_tiles
@@ -137,4 +153,7 @@ def run_validation_loop(e, val_loader, net, loss_fn, device, lamb=None, temp=Non
     except:
         total_frac = np.nan
 
-    return total_loss, roc_auc_score(y_tracker, y_prob_tracker), total_frac
+    if label.shape[1] == 1:
+        return total_loss, roc_auc_score(y_tracker, y_prob_tracker), total_frac
+    else:
+        return total_loss, np.mean(np.abs(y_tracker - y_prob_tracker)), total_frac

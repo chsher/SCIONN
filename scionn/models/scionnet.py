@@ -21,6 +21,15 @@ class Generator(nn.Module):
         self.n_rnn_layers = n_rnn_layers
         self.conv_layers = []
         self.tanh = nn.Tanh()
+        self.num_embeddings = num_embeddings
+
+        if num_embeddings is not None:
+            #self.emb = nn.Embedding(num_embeddings, in_channels)
+            #in_channels = in_channels * 2
+            self.emb = nn.Linear(num_embeddings, in_channels)
+        #else:
+            #self.emb = nn.Identity()
+            #self.emb = None
                  
         for layer in range(self.n_conv_layers):
             self.conv_layers.append(nn.Conv1d(in_channels, self.n_conv_filters[layer], self.kernel_size[layer]))
@@ -35,16 +44,11 @@ class Generator(nn.Module):
         else:
             in_channels = hidden_size
 
-        if num_embeddings is not None:
-            self.emb = nn.Embedding(num_embeddings, in_channels)
-        else:
-            self.emb = nn.Identity()
-
         self.classification_layer = nn.Linear(in_channels, out_channels)
         
     def forward(self, x):
         # x: BATCH_SIZE x N_CELLS x N_GENES
-        if self.emb is None:
+        '''if self.emb is None:
             x = torch.transpose(x, 1, 2)
 
             embed = self.conv(x)
@@ -53,13 +57,30 @@ class Generator(nn.Module):
             self.lstm.flatten_parameters()
             output, hidden = self.lstm(embed)
         else:
-            output = self.emb(x)
+            output = self.emb(x)'''
+
+        #if self.emb is not None:
+        #    embed0 = self.emb(x[:, :, -1].long())
+        #    x = torch.cat((x[:, :, :-1], embed0), axis=-1)
+
+        if self.num_embeddings is not None:
+            x = x[:, :, -self.num_embeddings:]
+            x = self.emb(x)
+
+        x = torch.transpose(x, 1, 2)
+
+        embed = self.conv(x)
+        embed = torch.transpose(embed, 1, 2)
+
+        self.lstm.flatten_parameters()
+        output, hidden = self.lstm(embed)
 
         y = self.classification_layer(output)
         return y.squeeze(-1)
 
 class Encoder(nn.Module):
-    def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_fc_layers, dropout=0.5, in_channels=500, out_channels=1, H_in=7):
+    def __init__(self, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_fc_layers, dropout=0.5, in_channels=500, out_channels=1, H_in=7,
+        num_embeddings=None):
         super(Encoder, self).__init__()
         self.n_conv_layers = n_conv_layers
         self.n_fc_layers = n_fc_layers
@@ -70,6 +91,13 @@ class Encoder(nn.Module):
         self.fc_layers = []
         self.n = nn.Dropout(dropout)
         self.tanh = nn.Tanh()
+
+        #if num_embeddings is not None:
+            #self.emb = nn.Embedding(num_embeddings, in_channels)
+            #in_channels = in_channels * 2
+        #else:
+            #self.emb = nn.Identity()
+            #self.emb = None
              
         for layer in range(self.n_conv_layers):
             self.conv_layers.append(nn.Conv1d(in_channels, self.n_conv_filters[layer], self.kernel_size[layer]))
@@ -89,6 +117,11 @@ class Encoder(nn.Module):
         
     def forward(self, x):
         # x: BATCH_SIZE x N_CELLS x N_GENES
+        
+        #if self.emb is not None:
+        #    embed0 = self.emb(x[:, :, -1].long())
+        #    x = torch.cat((x[:, :, :-1], embed0), axis=-1)
+
         x = torch.transpose(x, 1, 2)
 
         embed = self.conv(x)
@@ -108,21 +141,24 @@ class SCIONNet(nn.Module):
         self.device = device
         self.adv = adv
         self.hard = hard
-        self.num_embeddings = num_embeddings
+        #self.num_embeddings = num_embeddings
         self.hide = hide
 
         self.gen = Generator(n_conv_layers, kernel_size, n_conv_filters, hidden_size[1], n_layers, in_channels=in_channels, 
-            bidirectional=bidirectional, num_embeddings=num_embeddings)
-        self.enc = Encoder(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, in_channels=in_channels, H_in=H_in)
+            dropout=dropout, bidirectional=bidirectional, num_embeddings=num_embeddings)
+        self.enc = Encoder(n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, in_channels=in_channels, 
+            out_channels=out_channels, H_in=H_in, num_embeddings=num_embeddings)
     
     def forward(self, x):
         # x: BATCH_SIZE x N_CELLS x N_GENES
         #input = torch.transpose(x, 1, 2)
 
-        if self.num_embeddings is not None:
+        '''if self.num_embeddings is not None:
             output = self.gen(x[:, :, -1].long())
         else:
-            output = self.gen(x)
+            output = self.gen(x)'''
+
+        output = self.gen(x)
 
         if self.gumbel:
             keep = model_utils.gumbel_softmax(output, self.temp, self.device, hard=self.hard)
@@ -134,10 +170,12 @@ class SCIONNet(nn.Module):
         x_keep = x.transpose(1, 2).transpose(0, 1) * keep[:, :, -1]
         x_keep = x_keep.transpose(0, 1).transpose(1, 2)
 
-        if self.num_embeddings is not None:
+        '''if self.num_embeddings is not None:
             output_keep = self.enc(x_keep[:, :, :-1])
         else:
-            output_keep = self.enc(x_keep)
+            output_keep = self.enc(x_keep)'''
+
+        output_keep = self.enc(x_keep)
 
         if self.adv:
             x_adv = x.transpose(1, 2).transpose(0, 1) * (1 - keep[:, :, -1])

@@ -1,7 +1,7 @@
 import sys
 from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
-from scionn.models import logreg, rnnet, scionnet
+from scionn.models import logreg, rnnet, scionnet, cnnet
 
 import os
 import pickle
@@ -25,6 +25,11 @@ def load_model(net_name, net_params, input_size, seq_len, device, outfilek, stat
         net = rnnet.RNNet(input_size, hidden_size, output_size, n_layers, dropout, bidirectional, agg, hide, net_name=net_name)
         lamb, temp, gumbel, adv = np.nan, np.nan, False, False
 
+    elif net_name == 'cnnet':
+        output_size, n_conv_layers, kernel_size, n_conv_filters, dropout = net_params
+        net = cnnet.CNNet(n_conv_layers, kernel_size, n_conv_filters, dropout=dropout, in_channels=input_size, out_channels=output_size)
+        lamb, temp, gumbel, adv = np.nan, np.nan, False, False
+        
     elif net_name == 'scionnet':
         output_size, n_conv_layers, kernel_size, n_conv_filters, hidden_size, n_layers, bidirectional, gumbel, lamb, temp, adv, hard, dropout = net_params
 

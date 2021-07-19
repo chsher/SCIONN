@@ -15,23 +15,39 @@ from scripts import script_utils
 
 args = script_utils.parse_args()
 
-if args.ylabel == 'MMRLabel':
-    MMR_TO_IDX = {
-        'MSS': 0,
-        'MSI': 1
-    }
-elif args.ylabel == 'ResponseLabel':
-    MMR_TO_IDX = {
-        'Non-responder': 0,
-        'Responder': 1,
-        'PD': 0,
-        'SD': 0,
-        'PR': 1,
-        'CR': 1
-    }
-
 adata = sc.read_h5ad(args.infile)
-adata.obs[args.ylabel] = adata.obs[args.label].apply(lambda x: MMR_TO_IDX[x])
+
+if args.ylabel in ['MMRLabel', 'ResponseLabel']:
+    if args.ylabel == 'MMRLabel':
+        MMR_TO_IDX = {
+            'MSS': 0,
+            'MSI': 1
+        }
+    elif args.ylabel == 'ResponseLabel':
+        MMR_TO_IDX = {
+            'Non-responder': 0,
+            'Responder': 1,
+            'PD': 0,
+            'SD': 0,
+            'PR': 1,
+            'CR': 1
+        }
+
+    adata.obs[args.ylabel] = adata.obs[args.label].apply(lambda x: MMR_TO_IDX[x])
+
+elif args.ylabel in ['InFreq', 'InFreqPD1']:
+    if args.ylabel == 'InFreq':
+        #df = adata[~adata.obs['v11_top'].isin(['Epi', 'Strom']), :].obs.groupby([args.smlabel, 'v11_mid'])['batchID'].count()
+        df = adata[~adata.obs['v11_top'].isin(['Epi', 'Strom']), :].obs.groupby([args.smlabel, 'v11_top'])['batchID'].count()
+    elif args.ylabel == 'InFreqPD1':
+        df = adata.obs.groupby([args.smlabel, 'CellTypeB_manual'])['batch'].count()
+
+    a = df.unstack(1)
+    b = a.sum(axis=1)
+    c = a.div(b, axis=0)
+    c.fillna(0.0, inplace=True)
+    
+    adata.obs[args.ylabel] = adata.obs[args.smlabel].apply(lambda x: c.loc[x, :].values)
 
 if args.val_infile is not None:
     bdata = sc.read_h5ad(args.val_infile)
@@ -44,12 +60,15 @@ if not args.disable_cuda and torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 
-if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'scionnet']:
+if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'cnnet', 'scionnet']:
     if args.net_name == 'logreg':
         net_params = [args.output_size, args.dropout] 
         args.catlabel = None
     elif args.net_name in ['rnnet', 'gru', 'lstm']:
         net_params = [args.output_size, args.hidden_size[0], args.n_layers, args.bidirectional, args.agg, args.hide, args.dropout] 
+        args.catlabel = None
+    elif args.net_name == 'cnnet':
+        net_params = [args.output_size, args.n_conv_layers, args.kernel_size, args.n_conv_filters, args.dropout]
         args.catlabel = None
     elif args.net_name == 'scionnet':
         net_params = [args.output_size, args.n_conv_layers, args.kernel_size, args.n_conv_filters, args.hidden_size, args.n_layers, args.bidirectional, args.gumbel, args.lamb, args.temp, args.adv, args.hard, args.dropout]
@@ -68,12 +87,18 @@ if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'scionnet']:
     if args.attribution:
         attributer.run_integrated_gradients(adata, args.label, args.seq_len, args.net_name, net_params, args.outfile, args.statsfile, args.attrfile, 
             device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, smlabel=args.smlabel, ctlabel=args.ctlabel, scale=args.scale, 
-            trainBaseline=args.train_baseline, returnBase=args.return_baseline, bdata=bdata, random_state=args.random_state, verbose=args.verbose, catlabel=args.catlabel)
+            trainBaseline=args.train_baseline, returnBase=args.return_baseline, bdata=bdata, num_replicates=args.num_replicates, random_state=args.random_state, verbose=args.verbose, catlabel=args.catlabel)
 
-        if ('keep' in adata.var.columns) and ('prog_gene' in adata.var.columns) and ('program' in adata.var.columns):
-            groundtruth1 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & ((adata.var['program'] == 1) | (adata.var['program'] == 3)), :].index
-            groundtruth2 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & ((adata.var['program'] == 2) | (adata.var['program'] == 3)), :].index
-            attributer.compare_groundtruth(args.kfold, groundtruth1, groundtruth2, args.statsfile, args.attrfile, compare_sd=True)
+    if ('keep' in adata.var.columns) and ('prog_gene' in adata.var.columns) and ('program' in adata.var.columns):
+        groundtruth1 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & ((adata.var['program'] == 1) | (adata.var['program'] == 3)), :].index
+        groundtruth2 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & ((adata.var['program'] == 2) | (adata.var['program'] == 3)), :].index
+
+        if args.ctlabel + '1' in adata.var.index:
+            addlabel = True
+        else:
+            addlabel = False
+
+        attributer.compare_groundtruth(args.kfold, groundtruth1, groundtruth2, args.statsfile, args.attrfile, compare_sd=True, ctlabel=args.ctlabel, addlabel=addlabel)
 
 elif args.net_name in ['LR', 'RF']:
     splits_msi, splits_mss, idxs_msi, idxs_mss = data_utils.make_splits(adata, args.ylabel, args.ptlabel, args.kfold, random_state=args.random_state)

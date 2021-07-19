@@ -68,13 +68,19 @@ class SingleCellDataset(Dataset):
     def __getitem__(self, idx):
         if (self.trainBaseline and idx >= len(self.idxs)) or self.baseOnly:
             x = self.xb
-            y = torch.FloatTensor([idx % self.n_labels])
+
+            if self.n_labels == 2:
+                y = torch.FloatTensor([idx % self.n_labels])
+            elif self.n_labels > 2:
+                y = torch.zeros(self.n_labels)
+                y[int(idx % self.n_labels)] = 1.0
+
             b_idxs = None
             base = torch.FloatTensor([1.0])
 
-            if self.pt_cats is not None:
-                x_cat = torch.FloatTensor(np.random.choice(np.arange(self.n_cats), self.seq_len, replace=True))
-                x = torch.cat((x, x_cat.unsqueeze(-1)), dim=-1)
+            #if self.pt_cats is not None:
+            #    x_cat = torch.FloatTensor(np.random.choice(np.arange(self.n_cats), self.seq_len, replace=True))
+            #    x = torch.cat((x, x_cat.unsqueeze(-1)), dim=-1)
 
         else:
             idx = int(idx % len(self.idxs))
@@ -87,14 +93,19 @@ class SingleCellDataset(Dataset):
                 b_idxs = np.random.choice(self.pt_idxs[b], self.seq_len, replace=replace)
 
             x = torch.FloatTensor(self.adata[b_idxs, :].X.todense().reshape(-1, self.input_size))
-            y = torch.FloatTensor([self.pt_labels[b]])
+
+            if self.n_labels == 2:
+                y = torch.FloatTensor([self.pt_labels[b]])
+            elif self.n_labels > 2:
+                y = torch.FloatTensor(self.pt_labels[b])
+
             base = torch.FloatTensor([0.0])
 
-            if self.pt_cats is not None:
-                x_cat = torch.FloatTensor(self.adata.obs.loc[self.adata.obs.index[b_idxs], self.catlabel].values)
-                x = torch.cat((x, x_cat.unsqueeze(-1)), dim=-1)
+            #if self.pt_cats is not None:
+            #    x_cat = torch.FloatTensor(self.adata.obs.loc[self.adata.obs.index[b_idxs], self.catlabel].values)
+            #    x = torch.cat((x, x_cat.unsqueeze(-1)), dim=-1)
                 #x = torch.cat((x, torch.FloatTensor([self.pt_cats[b]]).unsqueeze(-1)))
-            
+
         if self.details:
             return x, y, b_idxs
 

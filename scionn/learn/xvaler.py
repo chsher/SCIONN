@@ -12,6 +12,7 @@ from os.path import dirname, realpath
 sys.path.append(dirname(realpath(__file__)))
 from scionn.datasets import data_utils
 from scionn.models import model_utils
+from scionn.learn import learn_utils
 from scionn.learn import trainer
 
 import torch
@@ -20,15 +21,22 @@ import torch.optim as optim
 
 import pdb
 
-PRINT_STMT = '{6} best {7} epoch: {0:d}, loss: {1:.4f}, AUC: {2:.4f}, frac: {3:.4f}, lamb: {4:.4f}, temp: {5:.4f}'
+PRINT_STMT = '{6} best {7} epoch: {0:d}, loss: {1:.4f}, {8}: {2:.4f}, frac: {3:.4f}, lamb: {4:.4f}, temp: {5:.4f}'
 
 def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_params, learning_rate, weight_decay, patience, num_epochs, outfile, statsfile, 
     device, kfold=10, ylabel='MMRLabel', ptlabel='PatientBarcode', smlabel='PatientTypeID', training=True, validate=True, scale=True, trainBaseline=True, 
     returnBase=True, bdata=None, pin_memory=True, n_workers=0, random_state=32921, verbose=True, catlabel=None):
 
     input_size = adata.shape[1]
-    loss_fn = nn.BCEWithLogitsLoss()
-    num_embeddings = max(adata.obs[catlabel]) + 1 if catlabel is not None else None
+
+    if ylabel in ['MMRLabel', 'ResponseLabel']:
+        loss_fn = nn.BCEWithLogitsLoss()
+        metric = 'auc'
+    elif ylabel in ['InFreq', 'InFreqPD1']:
+        loss_fn = learn_utils.KLDivLoss()
+        metric = 'mae'
+
+    num_embeddings = max(adata.obs[catlabel]) if catlabel is not None else None
 
     splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
 
@@ -37,7 +45,7 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
         a[0] = a[0] + '_' + str(kidx).zfill(2)
         outfilek = '.'.join(a)
 
-        if (not os.path.exists(outfilek)) or (bdata is not None):
+        if (not os.path.exists(outfilek)) or ((os.path.exists(outfilek)) and (bdata is not None)):
             datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
                 batch_size=batch_size, scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, bdata=bdata, random_state=random_state, catlabel=catlabel)
             loaders = [DataLoader(d, batch_size=len(d), shuffle=i==0, pin_memory=pin_memory, num_workers=n_workers, drop_last=i==0) for i,d in enumerate(datasets)]
@@ -64,7 +72,7 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
                     if loss < best_loss: 
                         tally = 0
                         best_loss, best_epoch, best_auc, best_fr, best_lamb, best_temp = loss, e, auc, frac_tiles, lamb, temp
-                        print(PRINT_STMT.format(best_epoch, best_loss, best_auc, best_fr, best_lamb, best_temp, 'New', 'Val'))
+                        print(PRINT_STMT.format(best_epoch, best_loss, best_auc, best_fr, best_lamb, best_temp, 'New', 'Val', metric.upper()))
                         torch.save(net.state_dict(), outfilek)
                     else:
                         tally += 1
@@ -84,7 +92,7 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
                         temp = max(temp, 0.1)
                         print('Reduced temperature:', temp)
                 
-                print(PRINT_STMT.format(best_epoch, best_loss, best_auc, best_fr, best_lamb, best_temp, 'Overall', 'Val'))
+                print(PRINT_STMT.format(best_epoch, best_loss, best_auc, best_fr, best_lamb, best_temp, 'Overall', 'Val', metric.upper()))
 
                 with open(statsfile, 'ab') as f:
                     pickle.dump({'k': kidx, 
@@ -97,7 +105,7 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
                         'lr_end': optimizer.param_groups[0]['lr'], 
                         'epoch_best': best_epoch, 
                         'loss_best': best_loss, 
-                        'auc_best': best_auc, 
+                        metric + '_best': best_auc, 
                         'frac_best': best_fr, 
                         'lamb_best': best_lamb, 
                         'temp_best': best_temp}, f)
@@ -111,7 +119,7 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
             loss, auc, frac_tiles = trainer.run_validation_loop(0, test_loader, net, loss_fn, device, lamb=best_lamb, temp=best_temp, gumbel=gumbel, 
                 adv=adv, verbose=verbose, blabel=blabel.title())
 
-            print(PRINT_STMT.format(best_epoch, loss, auc, frac_tiles, best_lamb, best_temp, 'Overall', blabel.title()))
+            print(PRINT_STMT.format(best_epoch, loss, auc, frac_tiles, best_lamb, best_temp, 'Overall', blabel.title(), metric.upper()))
 
             with open(statsfile, 'ab') as f:
                 pickle.dump({'k': kidx, 
@@ -124,7 +132,9 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
                     'lr_end': optimizer.param_groups[0]['lr'], 
                     'epoch_best': best_epoch, 
                     'loss_best': loss, 
-                    'auc_best': auc, 
+                    metric + '_best': auc, 
                     'frac_best': frac_tiles, 
                     'lamb_best': best_lamb, 
                     'temp_best': best_temp}, f)
+        else:
+            print('Model state dict already found, k={}'.format(kidx))

@@ -13,10 +13,16 @@ import pdb
 def make_splits(adata, ylabel, ptlabel, kfold, random_state=None):
     if random_state is not None:
         np.random.seed(random_state)
-        
-    idxs_msi = adata.obs.loc[adata.obs[ylabel] == 1, ptlabel].unique()
-    idxs_mss = adata.obs.loc[adata.obs[ylabel] == 0, ptlabel].unique()
-    idxs_mss = np.setdiff1d(idxs_mss, idxs_msi)
+    
+    if ylabel in ['MMRLabel', 'ResponseLabel']:    
+        idxs_msi = adata.obs.loc[adata.obs[ylabel] == 1, ptlabel].unique()
+        idxs_mss = adata.obs.loc[adata.obs[ylabel] == 0, ptlabel].unique()
+        idxs_mss = np.setdiff1d(idxs_mss, idxs_msi)
+    elif ylabel in ['InFreq', 'InFreqPD1']:
+        idxs = adata.obs[ptlabel].unique()
+        midpt = len(idxs) // 2
+        idxs_msi = idxs[:midpt]
+        idxs_mss = idxs[midpt:]
 
     if len(idxs_msi) < kfold or len(idxs_mss) < kfold:
         kfold = min(len(idxs_msi), len(idxs_mss))
