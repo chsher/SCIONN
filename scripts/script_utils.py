@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('--return_baseline', default=False, action='store_true', help='whether or not to return baseline indicator')
     parser.add_argument('--catlabel', type=str, default=None, help='cell category annotation for categorical labels (deprecated)')
     parser.add_argument('--freqlabel', type=str, default='v11_bot', help='cell category annotation for frequency prediction')
+    parser.add_argument('--splitbystudy', default=False, action='store_true', help='whether to split dataset by study')
     
     # model
     parser.add_argument('--net_name', type=str, default='rnnet', help='name of neural network')
@@ -53,6 +54,7 @@ def parse_args():
     # learning
     parser.add_argument('--training', default=False, action='store_true', help='whether to train the model')
     parser.add_argument('--validate', default=False, action='store_true', help='whether to evaluate the model')
+    parser.add_argument('--summarize', default=False, action='store_true', help='whether to summarize the results')
     parser.add_argument('--n_epochs', type=int, default=20, help='number of epochs to train the model')
     parser.add_argument('--disable_cuda', default=False, action='store_true', help='whether or not to use GPU')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')

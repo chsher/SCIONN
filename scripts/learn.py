@@ -76,17 +76,20 @@ if args.net_name in ['logreg', 'rnnet', 'gru', 'lstm', 'cnnet', 'scionnet']:
         xvaler.run_kfold_xvalidation(adata, args.label, args.seq_len, args.batch_size, args.net_name, net_params, args.learning_rate, args.weight_decay, 
             args.patience, args.n_epochs, args.outfile, args.statsfile, device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, 
             smlabel=args.smlabel, training=args.training, validate=args.validate, scale=args.scale, trainBaseline=args.train_baseline, returnBase=args.return_baseline, 
-            bdata=bdata, pin_memory=args.pin_memory, n_workers=args.n_workers, random_state=args.random_state, verbose=args.verbose, catlabel=args.catlabel)
+            bdata=bdata, pin_memory=args.pin_memory, n_workers=args.n_workers, random_state=args.random_state, verbose=args.verbose, catlabel=args.catlabel, 
+            split_by_study=args.splitbystudy, summarize=args.summarize)
 
     if args.train_baseline:
         attributer.check_baseline_training(adata, args.label, args.seq_len, args.batch_size, args.net_name, net_params, args.outfile, args.statsfile, 
             device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, smlabel=args.smlabel, scale=args.scale, returnBase=args.return_baseline, 
-            bdata=bdata, pin_memory=args.pin_memory, n_workers=args.n_workers, random_state=args.random_state, verbose=args.verbose, catlabel=args.catlabel)
+            bdata=bdata, pin_memory=args.pin_memory, n_workers=args.n_workers, random_state=args.random_state, verbose=args.verbose, catlabel=args.catlabel, 
+            split_by_study=args.splitbystudy)
 
     if args.attribution:
         attributer.run_integrated_gradients(adata, args.label, args.seq_len, args.net_name, net_params, args.outfile, args.statsfile, args.attrfile, 
             device, kfold=args.kfold, ylabel=args.ylabel, ptlabel=args.ptlabel, smlabel=args.smlabel, ctlabel=args.ctlabel, scale=args.scale, 
-            trainBaseline=args.train_baseline, returnBase=args.return_baseline, bdata=bdata, num_replicates=args.num_replicates, random_state=args.random_state, verbose=args.verbose, catlabel=args.catlabel)
+            trainBaseline=args.train_baseline, returnBase=args.return_baseline, bdata=bdata, num_replicates=args.num_replicates, random_state=args.random_state, 
+            verbose=args.verbose, catlabel=args.catlabel, split_by_study=args.splitbystudy, freqlabel=args.freqlabel)
 
     if ('keep' in adata.var.columns) and ('prog_gene' in adata.var.columns) and ('program' in adata.var.columns):
         groundtruth1 = adata.var.loc[(adata.var['keep'] == True) & (adata.var['prog_gene'] == True) & ((adata.var['program'] == 1) | (adata.var['program'] == 3)), :].index

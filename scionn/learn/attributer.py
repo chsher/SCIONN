@@ -21,7 +21,7 @@ import pdb
 
 def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_params, outfile, statsfile, device, kfold=10, ylabel='MMRLabel', 
     ptlabel='PatientBarcode', smlabel='PatientTypeID', scale=True, returnBase=True, bdata=None, pin_memory=True, n_workers=0, random_state=32921, 
-    verbose=True, catlabel=None):
+    verbose=True, catlabel=None, split_by_study=False):
 
     input_size = adata.shape[1]
 
@@ -34,7 +34,7 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
 
     num_embeddings = max(adata.obs[catlabel]) if catlabel is not None else None
 
-    splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
+    splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, split_by_study=split_by_study, random_state=random_state)
 
     for kidx in trange(kfold):
         a = outfile.split('.')
@@ -64,17 +64,20 @@ def check_baseline_training(adata, label, seq_len, batch_size, net_name, net_par
 
 def run_integrated_gradients(adata, label, seq_len, net_name, net_params, outfile, statsfile, attrfile, device, kfold=10, ylabel='MMRLabel', 
     ptlabel='PatientBarcode', smlabel='PatientTypeID', ctlabel='v11_bot', scale=True, trainBaseline=True, returnBase=True, bdata=None, 
-    num_replicates=10, random_state=32921, verbose=True, catlabel=None):
+    num_replicates=10, random_state=32921, verbose=True, catlabel=None, split_by_study=False, freqlabel='v11_bot'):
 
     net_params[-1] = 0.0
     input_size = adata.shape[1]
 
-    mapper = {'InFreq': 13, 'InFreqPD1': 19}
+    mapper = {'InFreq': {'v11_mid': 13, 'v11_top': 5}, 'InFreqPD1': 19}
     num_targets = mapper.get(ylabel, 1)
+
+    if type(num_targets) is dict:
+        num_targets = num_targets.get(freqlabel, 1)
 
     num_embeddings = max(adata.obs[catlabel]) if catlabel is not None else None
 
-    splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, random_state=random_state)
+    splits_msi, splits_mss, idxs_msi, idxs_mss, kfold = data_utils.make_splits(adata, ylabel, ptlabel, kfold, split_by_study=split_by_study, random_state=random_state)
 
     for kidx in trange(kfold):
         a = attrfile.split('.')
