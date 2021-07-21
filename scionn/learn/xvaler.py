@@ -153,10 +153,13 @@ def run_kfold_xvalidation(adata, label, seq_len, batch_size, net_name, net_param
             print('Model state dict already found, k={}'.format(kidx))
 
         if summarize:
-            smps = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
-                batch_size=batch_size, scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, bdata=bdata, random_state=random_state, catlabel=catlabel, perSmp=True)
-            calc_per_smp_stats(smps, net, device, gumbel, statsfile, outfile, pin_memory, n_workers, metric=metric)
+            net, lamb, temp, gumbel, adv = model_utils.load_model(net_name, net_params, input_size, seq_len, device, outfilek, 
+                statsfile=statsfile, kidx=kidx, num_embeddings=num_embeddings)
 
             datasets = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
                 batch_size=batch_size, scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, bdata=bdata, random_state=random_state, catlabel=catlabel)
-            calc_overall_stats(datasets, net, loss_fn, device, gumbel, adv, verbose, statsfile, outfile, pin_memory, n_workers, metric=metric)
+            learn_utils.calc_overall_stats(datasets, kidx, net, loss_fn, device, gumbel, adv, verbose, statsfile, outfilek, pin_memory, n_workers, metric=metric)
+
+            smps = data_utils.make_datasets(adata, seq_len, splits_msi, splits_mss, idxs_msi, idxs_mss, kidx, kfold, ylabel, ptlabel, smlabel, 
+                batch_size=batch_size, scale=scale, trainBaseline=trainBaseline, returnBase=returnBase, bdata=bdata, random_state=random_state, catlabel=catlabel, perSmp=True)
+            learn_utils.calc_per_smp_stats(smps, kidx, net, device, gumbel, statsfile, outfilek, pin_memory, n_workers, metric=metric)
